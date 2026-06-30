@@ -1,7 +1,7 @@
 # DPI Engine - Deep Packet Inspection System
 
 
-This document explains **everything** about this project - from basic networking concepts to the complete code architecture. After reading this, you should understand exactly how packets flow through the system without needing to read the code.
+This document provides a comprehensive overview of the project, covering the networking concepts, system architecture, packet processing pipeline, and implementation details to help readers understand how the DPI engine works.
 
 ---
 
@@ -11,8 +11,8 @@ This document explains **everything** about this project - from basic networking
 2. [Networking Background](#2-networking-background)
 3. [Project Overview](#3-project-overview)
 4. [File Structure](#4-file-structure)
-5. [The Journey of a Packet (Simple Version)](#5-the-journey-of-a-packet-simple-version)
-6. [The Journey of a Packet (Multi-threaded Version)](#6-the-journey-of-a-packet-multi-threaded-version)
+5. [Packet Processing Pipeline (Simple Version)](#5-packet-processing-pipeline-simple-version)
+6. [Packet Processing Pipeline (Multi-threaded Version)](#6-packet-processing-pipeline-multi-threaded-version)
 7. [Deep Dive: Each Component](#7-deep-dive-each-component)
 8. [How SNI Extraction Works](#8-how-sni-extraction-works)
 9. [How Blocking Works](#9-how-blocking-works)
@@ -50,13 +50,13 @@ When you visit a website, data travels through multiple "layers":
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Layer 7: Application    │ HTTP, TLS, DNS               │
+│ Layer 7: Application    │ HTTP, TLS, DNS                │
 ├─────────────────────────────────────────────────────────┤
-│ Layer 4: Transport      │ TCP (reliable), UDP (fast)   │
+│ Layer 4: Transport      │ TCP (reliable), UDP (fast)    │
 ├─────────────────────────────────────────────────────────┤
-│ Layer 3: Network        │ IP addresses (routing)       │
+│ Layer 3: Network        │ IP addresses (routing)        │
 ├─────────────────────────────────────────────────────────┤
-│ Layer 2: Data Link      │ MAC addresses (local network)│
+│ Layer 2: Data Link      │ MAC addresses (local network) │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -115,7 +115,7 @@ TLS Client Hello:
         └── Server Name: "www.youtube.com"  ← We extract THIS!
 ```
 
-**This is the key to DPI**: Even though HTTPS is encrypted, the domain name is visible in the first packet!
+**This is the key to DPI:** Even though HTTPS encrypts application data, the destination domain is typically exposed through the TLS Server Name Indication (SNI), allowing it to be identified before encryption of the application payload.
 
 ---
 
@@ -175,7 +175,7 @@ packet_analyzer/
 
 ---
 
-## 5. The Journey of a Packet (Simple Version)
+## 5. Packet Processing Pipeline (Simple Version)
 
 Let's trace a single packet through `main_working.cpp`:
 
@@ -390,7 +390,7 @@ for (const auto& [tuple, flow] : flows) {
 
 ---
 
-## 6. The Journey of a Packet (Multi-threaded Version)
+## 6. Packet Processing Pipeline (Multi-threaded Version)
 
 The multi-threaded version (`dpi_mt.cpp`) adds **parallelism** for high performance:
 
@@ -415,7 +415,7 @@ The multi-threaded version (`dpi_mt.cpp`) adds **parallelism** for high performa
       ▼             ▼               ▼             ▼
 ┌──────────┐ ┌──────────┐   ┌──────────┐ ┌──────────┐
 │FP0 Thread│ │FP1 Thread│   │FP2 Thread│ │FP3 Thread│
-│(Fast Path)│ │(Fast Path)│   │(Fast Path)│ │(Fast Path)│
+│(Fast Path)|│(Fast Path)│  │(Fast Path)││(Fast Path)│
 └─────┬────┘ └─────┬────┘   └─────┬────┘ └─────┬────┘
       │            │              │            │
       └────────────┴──────────────┴────────────┘
@@ -871,7 +871,7 @@ Connection to YouTube:
 - **Windows 10/11**
 - **MSYS2**
 - **MinGW-w64 GCC**
-- **Python 3.x**
+- **Python 3.x (optional, only for generating sample PCAP files)**
 
 #### MSYS2 Setup
 
@@ -934,13 +934,6 @@ C:\msys64\mingw64\bin\libstdc++-6.dll
 
 > If Anaconda's DLL appears before the MSYS2 DLL, the executable may fail with **0xC0000139 (Entry Point Not Found)**.
 
-#### Creating Test Data
-
-```powershell
-py generate_test_pcap.py
-# Creates test_dpi.pcap with sample traffic
-```
-
 #### Build Commands
 
 **Simple Version:**
@@ -963,6 +956,14 @@ g++ -std=c++17 -pthread -O2 -I include -o dpi_engine.exe `
     src/packet_parser.cpp `
     src/sni_extractor.cpp `
     src/types.cpp
+```
+
+
+#### Creating Test Data (Optional)
+
+```powershell
+py generate_test_pcap.py
+# Creates test_dpi.pcap with sample traffic
 ```
 
 #### Running
@@ -995,7 +996,8 @@ g++ -std=c++17 -pthread -O2 -I include -o dpi_engine.exe `
 Open the generated PCAP files in **Wireshark** and compare:
 
 - `test_dpi.pcap`
-- `output.pcap`
+- `output.pcap` (basic execution)
+- `blocked_output.pcap` (blocking example)
 
 Verify:
 
@@ -1092,9 +1094,9 @@ del *.pcap
 This DPI engine demonstrates:
 
 1. **Network Protocol Parsing** - Understanding packet structure
-2. **Deep Packet Inspection** - Looking inside encrypted connections
+2. **Deep Packet Inspection** - Inspecting protocol metadata and unencrypted handshake information without decrypting application payloads.
 3. **Flow Tracking** - Managing stateful connections
 4. **Multi-threaded Architecture** - Scaling with thread pools
 5. **Producer-Consumer Pattern** - Thread-safe queues
 
-A key insight is that HTTPS traffic often reveals the destination domain via the TLS Server Name Indication (SNI) during the handshake, enabling Deep Packet Inspection systems to identify and control application traffic without decrypting the payload.
+A key insight is that, in most HTTPS connections today, the destination domain is exposed through the TLS Server Name Indication (SNI), enabling Deep Packet Inspection systems to classify and filter traffic without decrypting the application payload.
