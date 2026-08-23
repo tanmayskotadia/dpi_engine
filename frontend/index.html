@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DPI Engine | Traffic Analysis</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dark-theme">
+    <div id="app" class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved logo-icon"></i>
+                <h2>DPI Engine</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-target="dashboard">
+                    <i class="fa-solid fa-chart-line"></i> Dashboard
+                </a>
+                <a href="#engine" class="nav-item" data-target="engine">
+                    <i class="fa-solid fa-server"></i> Engine Control
+                </a>
+                <a href="#results" class="nav-item" data-target="results">
+                    <i class="fa-solid fa-list-check"></i> Analysis Results
+                </a>
+
+                <a href="#logs" class="nav-item" data-target="logs">
+                    <i class="fa-solid fa-terminal"></i> Console Logs
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="engine-status-indicator" id="global-status">
+                    <span class="status-dot status-idle"></span>
+                    <span class="status-text">Idle</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="page-title" id="page-title">Dashboard</div>
+                <div class="topbar-actions">
+                    <span class="current-file-badge" id="current-file-badge">No file loaded</span>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <!-- Dashboard View -->
+                <section id="view-dashboard" class="view-section active">
+                    <!-- Dashboard content will be injected here -->
+                </section>
+
+                <!-- Engine Control View -->
+                <section id="view-engine" class="view-section">
+                    <!-- Engine control content will be injected here -->
+                </section>
+
+                <!-- Results View -->
+                <section id="view-results" class="view-section">
+                    <!-- Results content will be injected here -->
+                </section>
+
+
+
+                <!-- Logs View -->
+                <section id="view-logs" class="view-section">
+                    <!-- Logs content will be injected here -->
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="/main.js"></script>
+</body>
+</html>

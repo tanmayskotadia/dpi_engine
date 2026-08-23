@@ -1,0 +1,29 @@
+{
+  "name": "packet_analyzer",
+  "version": "1.0.0",
+  "description": "This document provides a comprehensive overview of the project, covering the networking concepts, system architecture, packet processing pipeline, and implementation details to help readers understand how the DPI engine works.",
+  "main": "index.js",
+  "scripts": {
+    "server":               "node server/server.js",
+    "dev":                  "cd frontend && npm run dev",
+    "build:engine":         "node scripts/build-engine.js",
+    "build:frontend":       "cd frontend && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tanmayskotadia/dpi_engine.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tanmayskotadia/dpi_engine/issues"
+  },
+  "homepage": "https://github.com/tanmayskotadia/dpi_engine#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "multer": "^2.2.0"
+  }
+}

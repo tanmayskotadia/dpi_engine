@@ -1,0 +1,334 @@
+[
+  {
+    "packetStats": {
+      "totalPackets": 3041,
+      "totalBytes": 3111994,
+      "tcpPackets": 3033,
+      "udpPackets": 8
+    },
+    "filteringStats": {
+      "forwarded": 3041,
+      "dropped": 0,
+      "dropRate": 0
+    },
+    "threadStats": {
+      "loadBalancers": [
+        {
+          "id": 0,
+          "dispatched": 2598
+        },
+        {
+          "id": 1,
+          "dispatched": 443
+        }
+      ],
+      "fastPaths": [
+        {
+          "id": 0,
+          "processed": 2598
+        },
+        {
+          "id": 1,
+          "processed": 0
+        },
+        {
+          "id": 2,
+          "processed": 0
+        },
+        {
+          "id": 3,
+          "processed": 443
+        }
+      ]
+    },
+    "appBreakdown": [
+      {
+        "app": "Unknown",
+        "count": 2508,
+        "percentage": 82.5
+      },
+      {
+        "app": "HTTPS",
+        "count": 500,
+        "percentage": 16.4
+      },
+      {
+        "app": "Twitter/X",
+        "count": 25,
+        "percentage": 0.8
+      },
+      {
+        "app": "DNS",
+        "count": 8,
+        "percentage": 0.3
+      }
+    ],
+    "detectedDomains": [
+      {
+        "sni": "teams.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "teams.events.data.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "pub-ent-ince-10-t.trouter.teams.microsoft.com",
+        "app": "Twitter/X"
+      }
+    ],
+    "id": "run_1787521066756",
+    "timestamp": "2026-08-23T21:37:46.104Z",
+    "inputFile": "1787521063215-actual.pcap",
+    "outputFile": "1787521066104_output.pcap"
+  },
+  {
+    "packetStats": {
+      "totalPackets": 3041,
+      "totalBytes": 3111994,
+      "tcpPackets": 3033,
+      "udpPackets": 8
+    },
+    "filteringStats": {
+      "forwarded": 3041,
+      "dropped": 0,
+      "dropRate": 0
+    },
+    "threadStats": {
+      "loadBalancers": [
+        {
+          "id": 0,
+          "dispatched": 2598
+        },
+        {
+          "id": 1,
+          "dispatched": 443
+        }
+      ],
+      "fastPaths": [
+        {
+          "id": 0,
+          "processed": 2598
+        },
+        {
+          "id": 1,
+          "processed": 0
+        },
+        {
+          "id": 2,
+          "processed": 0
+        },
+        {
+          "id": 3,
+          "processed": 443
+        }
+      ]
+    },
+    "appBreakdown": [
+      {
+        "app": "Unknown",
+        "count": 2508,
+        "percentage": 82.5
+      },
+      {
+        "app": "HTTPS",
+        "count": 500,
+        "percentage": 16.4
+      },
+      {
+        "app": "Twitter/X",
+        "count": 25,
+        "percentage": 0.8
+      },
+      {
+        "app": "DNS",
+        "count": 8,
+        "percentage": 0.3
+      }
+    ],
+    "detectedDomains": [
+      {
+        "sni": "teams.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "teams.events.data.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "pub-ent-ince-10-t.trouter.teams.microsoft.com",
+        "app": "Twitter/X"
+      }
+    ],
+    "id": "run_1787521193425",
+    "timestamp": "2026-08-23T21:39:52.785Z",
+    "inputFile": "1787521063215-actual.pcap",
+    "outputFile": "1787521192785_output.pcap"
+  },
+  {
+    "packetStats": {
+      "totalPackets": 3041,
+      "totalBytes": 3111994,
+      "tcpPackets": 3033,
+      "udpPackets": 8
+    },
+    "filteringStats": {
+      "forwarded": 3033,
+      "dropped": 8,
+      "dropRate": 0.2630713581058862
+    },
+    "threadStats": {
+      "loadBalancers": [
+        {
+          "id": 0,
+          "dispatched": 2598
+        },
+        {
+          "id": 1,
+          "dispatched": 443
+        }
+      ],
+      "fastPaths": [
+        {
+          "id": 0,
+          "processed": 2598
+        },
+        {
+          "id": 1,
+          "processed": 0
+        },
+        {
+          "id": 2,
+          "processed": 0
+        },
+        {
+          "id": 3,
+          "processed": 443
+        }
+      ]
+    },
+    "appBreakdown": [
+      {
+        "app": "Unknown",
+        "count": 2508,
+        "percentage": 82.5
+      },
+      {
+        "app": "HTTPS",
+        "count": 500,
+        "percentage": 16.4
+      },
+      {
+        "app": "Twitter/X",
+        "count": 25,
+        "percentage": 0.8
+      },
+      {
+        "app": "DNS",
+        "count": 8,
+        "percentage": 0.3
+      }
+    ],
+    "detectedDomains": [
+      {
+        "sni": "teams.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "teams.events.data.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "pub-ent-ince-10-t.trouter.teams.microsoft.com",
+        "app": "Twitter/X"
+      }
+    ],
+    "id": "run_1787521205317",
+    "timestamp": "2026-08-23T21:40:04.671Z",
+    "inputFile": "1787521063215-actual.pcap",
+    "outputFile": "1787521204671_output.pcap"
+  },
+  {
+    "packetStats": {
+      "totalPackets": 3041,
+      "totalBytes": 3111994,
+      "tcpPackets": 3033,
+      "udpPackets": 8
+    },
+    "filteringStats": {
+      "forwarded": 3041,
+      "dropped": 0,
+      "dropRate": 0
+    },
+    "threadStats": {
+      "loadBalancers": [
+        {
+          "id": 0,
+          "dispatched": 2598
+        },
+        {
+          "id": 1,
+          "dispatched": 443
+        }
+      ],
+      "fastPaths": [
+        {
+          "id": 0,
+          "processed": 2598
+        },
+        {
+          "id": 1,
+          "processed": 0
+        },
+        {
+          "id": 2,
+          "processed": 0
+        },
+        {
+          "id": 3,
+          "processed": 443
+        }
+      ]
+    },
+    "appBreakdown": [
+      {
+        "app": "Unknown",
+        "count": 2508,
+        "percentage": 82.5
+      },
+      {
+        "app": "HTTPS",
+        "count": 500,
+        "percentage": 16.4
+      },
+      {
+        "app": "Twitter/X",
+        "count": 25,
+        "percentage": 0.8
+      },
+      {
+        "app": "DNS",
+        "count": 8,
+        "percentage": 0.3
+      }
+    ],
+    "detectedDomains": [
+      {
+        "sni": "teams.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "teams.events.data.microsoft.com",
+        "app": "Twitter/X"
+      },
+      {
+        "sni": "pub-ent-ince-10-t.trouter.teams.microsoft.com",
+        "app": "Twitter/X"
+      }
+    ],
+    "id": "run_1787521214381",
+    "timestamp": "2026-08-23T21:40:13.743Z",
+    "inputFile": "1787521063215-actual.pcap",
+    "outputFile": "1787521213742_output.pcap"
+  }
+]

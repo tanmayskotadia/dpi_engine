@@ -7,9 +7,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Source files
 set(SOURCES
-    src/main.cpp
+    src/dpi_mt.cpp
     src/pcap_reader.cpp
     src/packet_parser.cpp
+    src/sni_extractor.cpp
+    src/types.cpp
 )
 
 # Header files location

@@ -1,2 +1,47 @@
+# Compiled C++ engine binaries
 *.exe
+*.obj
+*.o
+*.out
+*.dll
+*.so
+*.dylib
+build/
+
+# PCAP files (can be large and contain sensitive traffic)
 *.pcap
+*.pcapng
+uploads/
+!uploads/.gitkeep
+!uploads/outputs/.gitkeep
+
+# Node.js
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (for the test script)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Environment files (may contain secrets or machine-specific paths)
+.env
+.env.local
+.env.production
+
+# Frontend build output
+frontend/dist/
+dist/
+
+# Editor/OS artifacts
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
