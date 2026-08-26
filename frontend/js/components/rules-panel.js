@@ -153,14 +153,24 @@ export class RulesPanel {
                 const type = btn.dataset.type;
                 const val = btn.dataset.val;
 
-                // Animate out
-                if (li) {
-                    li.classList.add('removing');
-                    await new Promise(r => setTimeout(r, 240)); // match animation duration
-                }
+                // Disable button immediately to prevent double-clicks
+                btn.disabled = true;
 
-                await api.removeRule(type, val);
-                this.state.refreshRules();
+                try {
+                    await api.removeRule(type, val);
+
+                    // Animate out only after successful deletion
+                    if (li) {
+                        li.classList.add('removing');
+                        await new Promise(r => setTimeout(r, 240));
+                    }
+
+                    this.state.refreshRules();
+                } catch (err) {
+                    console.error('Failed to delete rule:', err);
+                    btn.disabled = false;
+                    alert('Failed to remove rule: ' + err.message);
+                }
             }
         });
     }

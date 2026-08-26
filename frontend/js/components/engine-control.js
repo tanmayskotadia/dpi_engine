@@ -1,9 +1,15 @@
 import { api } from '../api.js';
 
+// Helper: escape HTML to prevent XSS when injecting filenames into innerHTML
+function escHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export class EngineControl {
     constructor(state) {
         this.state = state;
         this.container = document.getElementById('view-engine');
+        this._successBannerTimer = null; // track success banner auto-hide timer
         this.render();
         this.bindEvents();
         
@@ -131,12 +137,15 @@ export class EngineControl {
                 dropdown.classList.toggle('open');
                 e.stopPropagation();
             });
-            
-            document.addEventListener('click', (e) => {
+
+            // Named handler so it can be removed without stacking on re-render
+            this._dropdownCloseHandler = (e) => {
                 if (!e.target.closest('.custom-select')) {
                     dropdown.classList.remove('open');
                 }
-            });
+            };
+            document.removeEventListener('click', this._dropdownCloseHandler);
+            document.addEventListener('click', this._dropdownCloseHandler);
             
             dropdown.addEventListener('click', async (e) => {
                 const option = e.target.closest('.custom-option');
@@ -203,14 +212,20 @@ export class EngineControl {
             
             const btn = document.getElementById('btn-upload');
             try {
-                btn.textContent = "Uploading...";
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
                 btn.disabled = true;
                 this.hideError();
+
+                // Cancel any pending success banner auto-hide
+                if (this._successBannerTimer) {
+                    clearTimeout(this._successBannerTimer);
+                    this._successBannerTimer = null;
+                }
                 
                 await api.uploadFile(input.files[0]);
                 await this.refreshFileList();
-                
-                btn.textContent = "Upload";
+
+                btn.innerHTML = 'Upload';
                 btn.disabled = false;
                 input.value = '';
                 
@@ -237,7 +252,8 @@ export class EngineControl {
                 
                 text.textContent = 'PCAP uploaded successfully';
                 
-                setTimeout(() => {
+                this._successBannerTimer = setTimeout(() => {
+                    this._successBannerTimer = null;
                     this.hideError();
                     // Reset styling to default error
                     alertBox.style.backgroundColor = '';
@@ -253,7 +269,7 @@ export class EngineControl {
                     }
                 }, 4000);
             } catch (e) {
-                btn.textContent = "Upload";
+                btn.innerHTML = 'Upload';
                 btn.disabled = false;
                 
                 // Ensure default error styling is restored before showing error
@@ -366,6 +382,7 @@ export class EngineControl {
                 await api.stopEngine();
                 this.state.refreshStatus();
             } catch (e) {
+                btnStop.disabled = false; // re-enable so user can retry
                 this.showError('Stop failed: ' + e.message);
             }
         });
@@ -480,8 +497,8 @@ export class EngineControl {
                 }
                 
                 opt.innerHTML = `
-                    <div class="custom-option-text" title="${f.filename}">
-                        ${badgeHtml} ${f.filename} <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 8px;">${sizeMb} MB</span>
+                    <div class="custom-option-text" title="${escHtml(f.filename)}">
+                        ${badgeHtml} ${escHtml(f.filename)} <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 8px;">${sizeMb} MB</span>
                     </div>
                     <i class="fa-solid fa-trash delete-icon" title="Delete PCAP"></i>
                 `;

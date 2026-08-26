@@ -5,6 +5,7 @@ export class Dashboard {
         this.render();
         
         this.chart = null;
+        this._chartTimeout = null;
         
         this.state.on('results', (results) => {
             if (results) {
@@ -120,6 +121,12 @@ export class Dashboard {
             domainsBody.innerHTML = '<tr><td colspan="2" style="text-align:center; color: var(--text-muted);">No data available</td></tr>';
         }
 
+        // Cancel any pending chart creation
+        if (this._chartTimeout) {
+            clearTimeout(this._chartTimeout);
+            this._chartTimeout = null;
+        }
+
         // Destroy chart
         if (this.chart) {
             this.chart.destroy();
@@ -198,7 +205,8 @@ export class Dashboard {
             this.chart.update();
         } else {
             // Wait a bit for the canvas to be ready if hidden
-            setTimeout(() => {
+            this._chartTimeout = setTimeout(() => {
+                this._chartTimeout = null;
                 try {
                     this.chart = new Chart(ctx, {
                         type: 'doughnut',
@@ -221,7 +229,7 @@ export class Dashboard {
                             }
                         }
                     });
-                } catch(e) { console.error("Chart error", e); }
+                } catch(e) { console.error('Chart error', e); }
             }, 100);
         }
     }
