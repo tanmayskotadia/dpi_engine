@@ -7,7 +7,11 @@ export class Dashboard {
         this.chart = null;
         
         this.state.on('results', (results) => {
-            if (results) this.updateData(results);
+            if (results) {
+                this.updateData(results);
+            } else {
+                this.resetData();
+            }
         });
     }
     
@@ -87,6 +91,40 @@ export class Dashboard {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    resetData() {
+        // Zero out stats
+        const zeros = {
+            'dash-total-packets': '0',
+            'dash-total-bytes': '0',
+            'dash-forwarded': '0',
+            'dash-dropped': '0',
+            'dash-tcp-pct': '0%',
+            'dash-udp-pct': '0%',
+        };
+        Object.entries(zeros).forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        });
+
+        // Reset progress bars
+        const tcpBar = document.getElementById('dash-tcp-bar');
+        const udpBar = document.getElementById('dash-udp-bar');
+        if (tcpBar) tcpBar.style.width = '0%';
+        if (udpBar) udpBar.style.width = '0%';
+
+        // Reset domains table
+        const domainsBody = document.querySelector('#dash-domains-table tbody');
+        if (domainsBody) {
+            domainsBody.innerHTML = '<tr><td colspan="2" style="text-align:center; color: var(--text-muted);">No data available</td></tr>';
+        }
+
+        // Destroy chart
+        if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+        }
     }
     
     updateData(results) {

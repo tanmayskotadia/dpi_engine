@@ -87,6 +87,19 @@ export class RulesPanel {
                     background-color: var(--bg-tertiary);
                     margin-bottom: 5px;
                     border-radius: var(--radius-sm);
+                    animation: ruleSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+                @keyframes ruleSlideIn {
+                    from { opacity: 0; transform: translateX(-10px); }
+                    to   { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes ruleSlideOut {
+                    from { opacity: 1; transform: translateX(0); max-height: 50px; }
+                    to   { opacity: 0; transform: translateX(15px); max-height: 0; padding: 0; margin: 0; }
+                }
+                .rule-list li.removing {
+                    animation: ruleSlideOut 0.25s ease forwards;
+                    overflow: hidden;
                 }
                 .rule-delete-btn {
                     background: none;
@@ -94,9 +107,12 @@ export class RulesPanel {
                     color: var(--text-muted);
                     cursor: pointer;
                     transition: color 0.2s;
+                    padding: 4px 6px;
+                    border-radius: var(--radius-sm);
                 }
                 .rule-delete-btn:hover {
                     color: var(--status-error);
+                    background-color: rgba(239, 68, 68, 0.1);
                 }
             </style>
         `;
@@ -105,25 +121,44 @@ export class RulesPanel {
     bindEvents() {
         const setupAdd = (btnId, inputId, type) => {
             document.getElementById(btnId).addEventListener('click', async () => {
-                const val = document.getElementById(inputId).value.trim();
-                if(val) {
+                const input = document.getElementById(inputId);
+                const btn = document.getElementById(btnId);
+                const val = input.value.trim();
+                if (!val) return;
+
+                // Visual feedback: disable button while saving
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+                try {
                     await api.addRule(type, val);
-                    document.getElementById(inputId).value = '';
+                    input.value = '';
                     this.state.refreshRules();
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Add';
                 }
             });
         };
-        
+
         setupAdd('rule-ip-add', 'rule-ip-input', 'ip');
         setupAdd('rule-app-add', 'rule-app-input', 'app');
         setupAdd('rule-domain-add', 'rule-domain-input', 'domain');
-        
-        // Use event delegation for delete buttons
+
+        // Use event delegation for delete buttons — animate out before removing
         this.container.addEventListener('click', async (e) => {
             const btn = e.target.closest('.rule-delete-btn');
             if (btn) {
+                const li = btn.closest('li');
                 const type = btn.dataset.type;
                 const val = btn.dataset.val;
+
+                // Animate out
+                if (li) {
+                    li.classList.add('removing');
+                    await new Promise(r => setTimeout(r, 240)); // match animation duration
+                }
+
                 await api.removeRule(type, val);
                 this.state.refreshRules();
             }

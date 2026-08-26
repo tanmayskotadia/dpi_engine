@@ -81,6 +81,12 @@ export class StateManager {
             console.error('Failed to refresh results', e);
         }
     }
+
+    /** Clears the latest results from state and notifies the dashboard to reset */
+    clearResults() {
+        this.latestResults = null;
+        this.notify('results', null);
+    }
     
     async refreshHistory() {
         try {

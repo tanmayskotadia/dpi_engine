@@ -5,7 +5,11 @@ export class ResultsView {
         this.render();
         
         this.state.on('results', (results) => {
-            if(results) this.updateData(results);
+            if (results) {
+                this.updateData(results);
+            } else {
+                this.resetData();
+            }
         });
     }
     
@@ -58,6 +62,19 @@ export class ResultsView {
         `;
     }
     
+    resetData() {
+        const appBody = document.querySelector('#results-app-table tbody');
+        if (appBody) {
+            appBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">No analysis data available</td></tr>';
+        }
+
+        const lbBody = document.querySelector('#results-lb-table tbody');
+        if (lbBody) lbBody.innerHTML = '';
+
+        const fpBody = document.querySelector('#results-fp-table tbody');
+        if (fpBody) fpBody.innerHTML = '';
+    }
+
     updateData(results) {
         if(!results) return;
         

@@ -283,26 +283,30 @@ export class EngineControl {
             const outputFile = document.getElementById('engine-output-file');
             const pcapText = document.getElementById('pcap-custom-select-text');
             const dropdown = document.getElementById('pcap-custom-select-dropdown');
-            
+
             inputFile.value = '';
             outputFile.value = 'output.pcap';
-            
+
             if (pcapText) {
                 pcapText.textContent = 'Select uploaded file...';
                 pcapText.style.color = 'var(--text-muted)';
             }
-            
+
             if (dropdown) {
                 dropdown.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+                dropdown.classList.remove('open');
             }
-            
+
             lbsInput.value = '2';
             fpsInput.value = '2';
             updateThreads();
-            
+
             this.hideError();
             document.getElementById('engine-mini-console').innerHTML = '<div class="term-line term-info">Waiting for engine to start...</div>';
             document.getElementById('engine-progress-badge').style.display = 'none';
+
+            // Also reset the dashboard to its empty state
+            this.state.clearResults();
         });
         
         // Start handler
