@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build artifacts (rebuilt in Docker)
+build/
+frontend/dist/
+
+# Data files
+*.pcap
+*.pcapng
+uploads/
+server/data/
+
+# Development files
+.git
+.gitignore
+.env
+.env.*
+.vscode/
+.idea/
+*.md
+!README.md
+
+# Python test script
+*.py
+__pycache__/
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
