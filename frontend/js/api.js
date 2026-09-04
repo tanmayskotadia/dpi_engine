@@ -1,4 +1,8 @@
-const API_BASE = '/api';
+// In local dev, this falls back to '/api' which is intercepted by the Vite proxy.
+// When deployed on Vercel, set the environment variable VITE_API_URL to the Render backend URL (e.g., https://your-backend.onrender.com/api)
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
+    ? import.meta.env.VITE_API_URL 
+    : '/api';
 
 export const api = {
     // Engine API
@@ -103,7 +107,7 @@ export const api = {
     },
     
     async getFilesList() {
-        const res = await fetch(`${API_BASE}/files/list`);
+        const res = await fetch(`${API_BASE}/files/list`, { cache: 'no-store' });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || 'Failed to get files list');

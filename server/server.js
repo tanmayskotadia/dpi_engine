@@ -3,6 +3,10 @@
  * All configuration is loaded from server/config.js which reads environment variables.
  */
 
+// Load .env file if present (production environment variables)
+try { require('dotenv').config(); } catch (_) { /* dotenv optional */ }
+
+
 const express      = require('express');
 const cors         = require('cors');
 const path         = require('path');
@@ -44,8 +48,9 @@ app.use('/api/results', resultsRoutes);
 app.use('/api/files',   filesRoutes);
 
 // ── SPA fallback (production) ─────────────────────────────────────────────────
+// Express 5 uses path-to-regexp v8 which requires named wildcard params
 if (fs.existsSync(frontendDist)) {
-    app.get('*', (req, res) => {
+    app.get('/{*path}', (req, res) => {
         res.sendFile(path.join(frontendDist, 'index.html'));
     });
 }

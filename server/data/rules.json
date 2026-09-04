@@ -1,5 +1,7 @@
 {
   "blockedIPs": [],
-  "blockedApps": [],
+  "blockedApps": [
+    "DNS"
+  ],
   "blockedDomains": []
 }

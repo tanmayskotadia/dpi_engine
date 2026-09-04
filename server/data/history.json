@@ -994,5 +994,163 @@
     "timestamp": "2026-08-26T17:26:59.326Z",
     "inputFile": "1787521063215-actual.pcap",
     "outputFile": "1787765219326_output.pcap"
+  },
+  {
+    "packetStats": {
+      "totalPackets": 1747,
+      "totalBytes": 1154788,
+      "tcpPackets": 1693,
+      "udpPackets": 54
+    },
+    "filteringStats": {
+      "forwarded": 1747,
+      "dropped": 0,
+      "dropRate": 0
+    },
+    "threadStats": {
+      "loadBalancers": [
+        {
+          "id": 0,
+          "dispatched": 463
+        },
+        {
+          "id": 1,
+          "dispatched": 1284
+        }
+      ],
+      "fastPaths": [
+        {
+          "id": 0,
+          "processed": 463
+        },
+        {
+          "id": 1,
+          "processed": 0
+        },
+        {
+          "id": 2,
+          "processed": 0
+        },
+        {
+          "id": 3,
+          "processed": 1284
+        }
+      ]
+    },
+    "appBreakdown": [
+      {
+        "app": "Unknown",
+        "count": 1172,
+        "percentage": 67.1
+      },
+      {
+        "app": "HTTPS",
+        "count": 557,
+        "percentage": 31.9
+      },
+      {
+        "app": "DNS",
+        "count": 12,
+        "percentage": 0.7
+      },
+      {
+        "app": "Twitter/X",
+        "count": 6,
+        "percentage": 0.3
+      }
+    ],
+    "detectedDomains": [
+      {
+        "sni": "activity.windows.com",
+        "app": "HTTPS"
+      },
+      {
+        "sni": "array609.prod.do.dsp.mp.microsoft.com",
+        "app": "Twitter/X"
+      }
+    ],
+    "id": "run_1788549738723",
+    "timestamp": "2026-09-04T19:22:17.687Z",
+    "inputFile": "1788549731433-one.pcap",
+    "outputFile": "1788549737687_output.pcap"
+  },
+  {
+    "packetStats": {
+      "totalPackets": 1747,
+      "totalBytes": 1154788,
+      "tcpPackets": 1693,
+      "udpPackets": 54
+    },
+    "filteringStats": {
+      "forwarded": 1735,
+      "dropped": 12,
+      "dropRate": 0.6868918145392101
+    },
+    "threadStats": {
+      "loadBalancers": [
+        {
+          "id": 0,
+          "dispatched": 463
+        },
+        {
+          "id": 1,
+          "dispatched": 1284
+        }
+      ],
+      "fastPaths": [
+        {
+          "id": 0,
+          "processed": 463
+        },
+        {
+          "id": 1,
+          "processed": 0
+        },
+        {
+          "id": 2,
+          "processed": 0
+        },
+        {
+          "id": 3,
+          "processed": 1284
+        }
+      ]
+    },
+    "appBreakdown": [
+      {
+        "app": "Unknown",
+        "count": 1172,
+        "percentage": 67.1
+      },
+      {
+        "app": "HTTPS",
+        "count": 557,
+        "percentage": 31.9
+      },
+      {
+        "app": "DNS",
+        "count": 12,
+        "percentage": 0.7
+      },
+      {
+        "app": "Twitter/X",
+        "count": 6,
+        "percentage": 0.3
+      }
+    ],
+    "detectedDomains": [
+      {
+        "sni": "activity.windows.com",
+        "app": "HTTPS"
+      },
+      {
+        "sni": "array609.prod.do.dsp.mp.microsoft.com",
+        "app": "Twitter/X"
+      }
+    ],
+    "id": "run_1788549772302",
+    "timestamp": "2026-09-04T19:22:51.673Z",
+    "inputFile": "1788549731433-one.pcap",
+    "outputFile": "1788549771673_output.pcap"
   }
 ]

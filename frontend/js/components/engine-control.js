@@ -202,6 +202,13 @@ export class EngineControl {
             });
         }
         
+        // Auto-upload when file is selected
+        document.getElementById('engine-upload-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                document.getElementById('btn-upload').click();
+            }
+        });
+
         // Upload handler
         document.getElementById('btn-upload').addEventListener('click', async () => {
             const input = document.getElementById('engine-upload-input');
@@ -222,12 +229,27 @@ export class EngineControl {
                     this._successBannerTimer = null;
                 }
                 
-                await api.uploadFile(input.files[0]);
+                const uploadResult = await api.uploadFile(input.files[0]);
                 await this.refreshFileList();
 
                 btn.innerHTML = 'Upload';
                 btn.disabled = false;
                 input.value = '';
+                
+                // Auto-select the newly uploaded file
+                if (uploadResult && uploadResult.path && uploadResult.filename) {
+                    const engineInput = document.getElementById('engine-input-file');
+                    const textElement = document.getElementById('pcap-custom-select-text');
+                    const dropdown = document.getElementById('pcap-custom-select-dropdown');
+                    
+                    engineInput.value = uploadResult.path;
+                    textElement.textContent = uploadResult.filename;
+                    textElement.style.color = 'var(--text-primary)';
+                    
+                    dropdown.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+                    const newOpt = Array.from(dropdown.querySelectorAll('.custom-option')).find(opt => opt.dataset.value === uploadResult.path);
+                    if (newOpt) newOpt.classList.add('selected');
+                }
                 
                 // Show concise success message
                 const alertBox = document.getElementById('engine-error-alert');
