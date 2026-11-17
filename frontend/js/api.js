@@ -1,8 +1,8 @@
 // In local dev, this falls back to '/api' which is intercepted by the Vite proxy.
 // When deployed on Vercel, set the environment variable VITE_API_URL to the Render backend URL (e.g., https://your-backend.onrender.com/api)
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
-    ? import.meta.env.VITE_API_URL 
-    : '/api';
+export const API_BASE = ((typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
+    ? import.meta.env.VITE_API_URL
+    : '/api').replace(/\/+$/, '');
 
 export const api = {
     // Engine API

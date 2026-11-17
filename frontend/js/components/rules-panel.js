@@ -1,206 +1,229 @@
 import { api } from '../api.js';
+import { icon, escapeHtml } from '../ui.js';
+
+const RULE_TYPES = [
+    { type: 'ip', key: 'blockedIPs', title: 'IP addresses', label: 'Source IPv4 address', icon: 'server', placeholder: '192.168.1.50', help: 'Blocks traffic from this source address.', empty: 'No IP addresses blocked.' },
+    { type: 'app', key: 'blockedApps', title: 'Applications', label: 'Application or protocol', icon: 'shield', help: 'Blocks traffic classified as this application.', empty: 'No applications blocked.' },
+    { type: 'domain', key: 'blockedDomains', title: 'Domains', label: 'Domain name', icon: 'globe', placeholder: 'example.com', help: 'Matches text within detected domain names. No wildcards.', empty: 'No domains blocked.' },
+];
+
+// These values must match appTypeToString in the C++ engine.
+const APPLICATIONS = ['Amazon', 'Apple', 'Cloudflare', 'Discord', 'Facebook', 'GitHub', 'Google', 'Instagram', 'Microsoft', 'Netflix', 'Spotify', 'Telegram', 'TikTok', 'Twitter/X', 'WhatsApp', 'YouTube', 'Zoom'];
+const PROTOCOLS = ['DNS', 'HTTP', 'HTTPS', 'QUIC', 'TLS', 'Unknown'];
 
 export class RulesPanel {
     constructor(state) {
         this.state = state;
         this.container = document.getElementById('engine-rules-container');
+        this.busy = false;
         this.render();
         this.bindEvents();
-        
-        this.state.on('rules', (rules) => {
-            if(rules) this.updateData(rules);
-        });
+        this.updateData(this.state.rules);
+        this.state.on('rules', rules => this.updateData(rules));
     }
-    
+
     render() {
         this.container.innerHTML = `
-            <h3 style="margin-bottom: 15px;"><i class="fa-solid fa-ban"></i> Blocking Rules</h3>
-            <div class="card" style="margin-bottom: 20px; background-color: rgba(59, 130, 246, 0.1); border-color: var(--accent-primary);">
-                <div style="padding: 10px;">
-                    <i class="fa-solid fa-circle-info" style="color: var(--accent-primary); margin-right: 10px;"></i>
-                    Rules defined here will be applied the next time you start the DPI Engine.
+            <div class="section-heading">
+                <div>
+                    <h2 id="blocking-rules-heading">Blocking rules <span class="badge badge-neutral" id="rules-total-count">0 rules</span></h2>
+                    <p class="help-text">Changes apply to your next analysis. Captures are processed using the rules saved when a run starts.</p>
                 </div>
             </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-                <!-- IP Blocking -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fa-solid fa-network-wired"></i> Blocked IPs</h3>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <input type="text" id="rule-ip-input" class="form-control" placeholder="e.g. 192.168.1.50">
-                        <button id="rule-ip-add" class="btn btn-primary">Add</button>
-                    </div>
-                    <ul class="rule-list" id="rule-ip-list" style="list-style: none; max-height: 200px; overflow-y: auto;">
-                    </ul>
-                </div>
-                
-                <!-- App Blocking -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fa-solid fa-mobile-screen"></i> Blocked Applications</h3>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <select id="rule-app-input" class="form-control">
-                            <option value="">Select app...</option>
-                            <option value="YouTube">YouTube</option>
-                            <option value="Facebook">Facebook</option>
-                            <option value="Netflix">Netflix</option>
-                            <option value="WhatsApp">WhatsApp</option>
-                            <option value="Instagram">Instagram</option>
-                            <option value="Twitter">Twitter</option>
-                            <option value="Spotify">Spotify</option>
-                            <option value="Discord">Discord</option>
-                            <option value="Google">Google</option>
-                            <option value="HTTPS">HTTPS (Generic)</option>
-                            <option value="HTTP">HTTP (Generic)</option>
-                            <option value="DNS">DNS</option>
-                        </select>
-                        <button id="rule-app-add" class="btn btn-primary">Add</button>
-                    </div>
-                    <ul class="rule-list" id="rule-app-list" style="list-style: none; max-height: 200px; overflow-y: auto;">
-                    </ul>
-                </div>
-                
-                <!-- Domain Blocking -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fa-solid fa-globe"></i> Blocked Domains (SNI)</h3>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <input type="text" id="rule-domain-input" class="form-control" placeholder="e.g. tracking.com">
-                        <button id="rule-domain-add" class="btn btn-primary">Add</button>
-                    </div>
-                    <ul class="rule-list" id="rule-domain-list" style="list-style: none; max-height: 200px; overflow-y: auto;">
-                    </ul>
-                </div>
+            <div class="grid grid-cols-3" aria-labelledby="blocking-rules-heading">
+                ${RULE_TYPES.map(rule => `
+                    <section class="card" aria-labelledby="rule-${rule.type}-heading">
+                        <div class="card-header">
+                            <h3 class="card-title" id="rule-${rule.type}-heading">${icon(rule.icon)} ${rule.title}</h3>
+                            <span class="badge badge-neutral" id="rule-${rule.type}-count" aria-label="0 saved rules">0</span>
+                        </div>
+                        <div class="card-body">
+                            <form id="rule-${rule.type}-form" data-rule-type="${rule.type}" novalidate>
+                                <div class="form-group">
+                                    <label class="form-label" for="rule-${rule.type}-input">${rule.label}</label>
+                                    <div class="rule-input-row">
+                                        ${this.renderInput(rule)}
+                                        <button type="submit" id="rule-${rule.type}-add" class="btn btn-secondary" aria-label="Add ${rule.type === 'ip' ? 'IP address' : rule.type} rule">${icon('plus')} Add</button>
+                                    </div>
+                                    <p class="help-text" id="rule-${rule.type}-help">${rule.help}</p>
+                                </div>
+                            </form>
+                            <div id="rule-${rule.type}-notice" class="notice notice-error" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+                            <ul class="rule-list" id="rule-${rule.type}-list" aria-label="Blocked ${rule.title.toLowerCase()}"></ul>
+                        </div>
+                    </section>
+                `).join('')}
             </div>
-            
-            <style>
-                .rule-list li {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 8px 12px;
-                    border-bottom: 1px solid var(--border-color);
-                    background-color: var(--bg-tertiary);
-                    margin-bottom: 5px;
-                    border-radius: var(--radius-sm);
-                    animation: ruleSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                }
-                @keyframes ruleSlideIn {
-                    from { opacity: 0; transform: translateX(-10px); }
-                    to   { opacity: 1; transform: translateX(0); }
-                }
-                @keyframes ruleSlideOut {
-                    from { opacity: 1; transform: translateX(0); max-height: 50px; }
-                    to   { opacity: 0; transform: translateX(15px); max-height: 0; padding: 0; margin: 0; }
-                }
-                .rule-list li.removing {
-                    animation: ruleSlideOut 0.25s ease forwards;
-                    overflow: hidden;
-                }
-                .rule-delete-btn {
-                    background: none;
-                    border: none;
-                    color: var(--text-muted);
-                    cursor: pointer;
-                    transition: color 0.2s;
-                    padding: 4px 6px;
-                    border-radius: var(--radius-sm);
-                }
-                .rule-delete-btn:hover {
-                    color: var(--status-error);
-                    background-color: rgba(239, 68, 68, 0.1);
-                }
-            </style>
         `;
     }
-    
+
+    renderInput(rule) {
+        const attributes = `id="rule-${rule.type}-input" class="form-control" required aria-describedby="rule-${rule.type}-help rule-${rule.type}-notice"`;
+        if (rule.type === 'app') {
+            const options = values => values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+            return `<select ${attributes}>
+                <option value="">Select application</option>
+                <optgroup label="Applications">${options(APPLICATIONS)}</optgroup>
+                <optgroup label="Protocols and other traffic">${options(PROTOCOLS)}</optgroup>
+            </select>`;
+        }
+        return `<input ${attributes} type="text" placeholder="${rule.placeholder}" maxlength="${rule.type === 'ip' ? 15 : 253}" autocomplete="off" autocapitalize="none" spellcheck="false"${rule.type === 'ip' ? ' inputmode="decimal"' : ''}>`;
+    }
+
     bindEvents() {
-        const setupAdd = (btnId, inputId, type) => {
-            document.getElementById(btnId).addEventListener('click', async () => {
-                const input = document.getElementById(inputId);
-                const btn = document.getElementById(btnId);
-                const val = input.value.trim();
-                if (!val) return;
-
-                // Visual feedback: disable button while saving
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-
-                try {
-                    await api.addRule(type, val);
-                    input.value = '';
-                    this.state.refreshRules();
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = 'Add';
-                }
+        RULE_TYPES.forEach(rule => {
+            document.getElementById(`rule-${rule.type}-form`).addEventListener('submit', event => {
+                event.preventDefault();
+                this.addRule(rule);
             });
-        };
+            document.getElementById(`rule-${rule.type}-input`).addEventListener('input', event => {
+                event.target.removeAttribute('aria-invalid');
+                this.hideNotice(rule.type);
+            });
+        });
 
-        setupAdd('rule-ip-add', 'rule-ip-input', 'ip');
-        setupAdd('rule-app-add', 'rule-app-input', 'app');
-        setupAdd('rule-domain-add', 'rule-domain-input', 'domain');
-
-        // Use event delegation for delete buttons — animate out before removing
-        this.container.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.rule-delete-btn');
-            if (btn) {
-                const li = btn.closest('li');
-                const type = btn.dataset.type;
-                const val = btn.dataset.val;
-
-                // Disable button immediately to prevent double-clicks
-                btn.disabled = true;
-
-                try {
-                    await api.removeRule(type, val);
-
-                    // Animate out only after successful deletion
-                    if (li) {
-                        li.classList.add('removing');
-                        await new Promise(r => setTimeout(r, 240));
-                    }
-
-                    this.state.refreshRules();
-                } catch (err) {
-                    console.error('Failed to delete rule:', err);
-                    btn.disabled = false;
-                    alert('Failed to remove rule: ' + err.message);
-                }
-            }
+        this.container.addEventListener('click', event => {
+            const button = event.target.closest('button[data-remove-rule]');
+            if (button && !this.busy) this.removeRule(button);
         });
     }
-    
+
+    validate(rule, value) {
+        if (!value) return rule.type === 'app' ? 'Choose an application or protocol.' : `Enter ${rule.type === 'ip' ? 'an IPv4 address' : 'a domain name'}.`;
+        if (rule.type === 'ip') {
+            const octets = value.split('.');
+            if (octets.length !== 4 || octets.some(part => !/^\d{1,3}$/.test(part) || Number(part) > 255)) {
+                return 'Enter a valid IPv4 address, such as 192.168.1.50.';
+            }
+        }
+        if (rule.type === 'domain') {
+            const valid = value.length <= 253 && value.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+            if (!valid) return 'Enter a domain such as example.com, without a URL, path, or wildcard.';
+        }
+        if (rule.type === 'app' && ![...APPLICATIONS, ...PROTOCOLS].includes(value)) return 'Choose an application from the list.';
+        return null;
+    }
+
+    async addRule(rule) {
+        if (this.busy) return;
+        const input = document.getElementById(`rule-${rule.type}-input`);
+        let value = input.value.trim();
+        const error = this.validate(rule, value);
+        if (error) {
+            input.setAttribute('aria-invalid', 'true');
+            this.showNotice(rule.type, error, 'error');
+            input.focus();
+            return;
+        }
+        if (rule.type === 'ip') value = value.split('.').map(Number).join('.');
+        if (rule.type === 'domain') value = value.toLowerCase();
+        if ((this.state.rules?.[rule.key] || []).includes(value)) {
+            this.showNotice(rule.type, 'This rule is already saved.', 'info');
+            input.focus();
+            return;
+        }
+
+        const button = document.getElementById(`rule-${rule.type}-add`);
+        this.setBusy(true);
+        this.hideNotice(rule.type);
+        button.textContent = 'Adding…';
+        try {
+            const rules = await api.addRule(rule.type, value);
+            this.publishRules(rules);
+            input.value = '';
+            this.showNotice(rule.type, `Added ${value}. Applies to the next analysis.`, 'success');
+        } catch (error) {
+            this.showNotice(rule.type, `Could not add this rule. ${error.message}`, 'error');
+        } finally {
+            button.innerHTML = `${icon('plus')} Add`;
+            this.setBusy(false);
+            input.focus();
+        }
+    }
+
+    async removeRule(button) {
+        const { type, value } = button.dataset;
+        const list = document.getElementById(`rule-${type}-list`);
+        const index = [...list.querySelectorAll('button')].indexOf(button);
+        this.setBusy(true);
+        this.hideNotice(type);
+        button.setAttribute('aria-label', `Removing ${value}`);
+        try {
+            const rules = await api.removeRule(type, value);
+            this.publishRules(rules);
+            this.showNotice(type, `Removed ${value}. Applies to the next analysis.`, 'success');
+        } catch (error) {
+            this.showNotice(type, `Could not remove this rule. ${error.message}`, 'error');
+            button.setAttribute('aria-label', `Remove rule for ${value}`);
+        } finally {
+            this.setBusy(false);
+            const remaining = list.querySelectorAll('button');
+            (remaining[Math.min(index, remaining.length - 1)] || document.getElementById(`rule-${type}-input`)).focus();
+        }
+    }
+
+    publishRules(rules) {
+        this.state.rules = rules;
+        this.state.notify('rules', rules);
+    }
+
+    setBusy(busy) {
+        this.busy = busy;
+        this.container.querySelectorAll('input, select, button').forEach(control => { control.disabled = busy; });
+        this.container.setAttribute('aria-busy', String(busy));
+    }
+
+    showNotice(type, message, kind) {
+        const notice = document.getElementById(`rule-${type}-notice`);
+        notice.className = `notice notice-${kind}`;
+        notice.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
+        notice.textContent = message;
+        notice.hidden = false;
+    }
+
+    hideNotice(type) {
+        const notice = document.getElementById(`rule-${type}-notice`);
+        notice.hidden = true;
+        notice.textContent = '';
+    }
+
     updateData(rules) {
-        const renderList = (containerId, items, type) => {
-            const ul = document.getElementById(containerId);
-            ul.innerHTML = '';
-            if(items.length === 0) {
-                ul.innerHTML = '<li style="justify-content:center; color: var(--text-muted);">No rules defined</li>';
+        let total = 0;
+        RULE_TYPES.forEach(rule => {
+            const items = Array.isArray(rules?.[rule.key]) ? rules[rule.key] : [];
+            total += items.length;
+            const count = document.getElementById(`rule-${rule.type}-count`);
+            count.textContent = items.length;
+            count.setAttribute('aria-label', `${items.length} saved ${items.length === 1 ? 'rule' : 'rules'}`);
+            const list = document.getElementById(`rule-${rule.type}-list`);
+            list.replaceChildren();
+            if (!items.length) {
+                const empty = document.createElement('li');
+                empty.className = 'rule-empty';
+                empty.textContent = rule.empty;
+                list.appendChild(empty);
                 return;
             }
-            
-            items.forEach(item => {
-                const li = document.createElement('li');
-                const span = document.createElement('span');
-                span.textContent = item;
-                const btn = document.createElement('button');
-                btn.className = 'rule-delete-btn';
-                btn.dataset.type = type;
-                btn.dataset.val = item;
-                btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-                li.appendChild(span);
-                li.appendChild(btn);
-                ul.appendChild(li);
+            items.forEach(value => {
+                const item = document.createElement('li');
+                item.className = 'rule-item';
+                const label = document.createElement('span');
+                label.className = 'rule-value';
+                label.textContent = value;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn btn-ghost icon-btn';
+                remove.dataset.removeRule = '';
+                remove.dataset.type = rule.type;
+                remove.dataset.value = value;
+                remove.disabled = this.busy;
+                remove.setAttribute('aria-label', `Remove rule for ${value}`);
+                remove.title = `Remove ${value}`;
+                remove.innerHTML = icon('trash');
+                item.append(label, remove);
+                list.appendChild(item);
             });
-        };
-        
-        renderList('rule-ip-list', rules.blockedIPs, 'ip');
-        renderList('rule-app-list', rules.blockedApps, 'app');
-        renderList('rule-domain-list', rules.blockedDomains, 'domain');
+        });
+        document.getElementById('rules-total-count').textContent = `${total} ${total === 1 ? 'rule' : 'rules'}`;
     }
 }

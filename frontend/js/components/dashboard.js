@@ -1,236 +1,113 @@
+import { icon, escapeHtml, formatBytes, formatNumber, formatDate } from '../ui.js';
+
 export class Dashboard {
     constructor(state) {
         this.state = state;
         this.container = document.getElementById('view-dashboard');
         this.render();
-        
-        this.chart = null;
-        this._chartTimeout = null;
-        
-        this.state.on('results', (results) => {
-            if (results) {
-                this.updateData(results);
-            } else {
-                this.resetData();
-            }
+        state.on('results', results => this.updateData(results));
+        state.on('history', history => this.updateHistory(history));
+        state.on('status', status => {
+            const notice = document.getElementById('dashboard-processing');
+            notice.hidden = status.state !== 'processing';
         });
     }
-    
+
     render() {
         this.container.innerHTML = `
-            <div class="grid grid-cols-4" style="margin-bottom: 20px;">
-                <div class="stat-widget">
-                    <span class="stat-label">Total Packets</span>
-                    <span class="stat-value" id="dash-total-packets">0</span>
-                </div>
-                <div class="stat-widget">
-                    <span class="stat-label">Total Bytes</span>
-                    <span class="stat-value" id="dash-total-bytes">0</span>
-                </div>
-                <div class="stat-widget">
-                    <span class="stat-label">Forwarded</span>
-                    <span class="stat-value stat-success" id="dash-forwarded">0</span>
-                </div>
-                <div class="stat-widget">
-                    <span class="stat-label">Dropped (Blocked)</span>
-                    <span class="stat-value stat-danger" id="dash-dropped">0</span>
-                </div>
+            <div class="page-heading">
+                <div><div class="eyebrow">NETWORK ANALYTICS</div><h1>Traffic overview</h1><p>A clear picture of your latest packet capture.</p></div>
+                <a class="btn btn-primary" href="#engine">${icon('plus')} New analysis</a>
             </div>
-            
-            <div class="grid grid-cols-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fa-solid fa-chart-pie"></i> Application Analysis</h3>
-                    </div>
-                    <div style="height: 300px; display: flex; justify-content: center; align-items: center;">
-                        <canvas id="app-breakdown-chart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fa-solid fa-network-wired"></i> Protocol Distribution</h3>
-                    </div>
-                    <div style="padding-top: 20px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span>TCP</span>
-                            <span id="dash-tcp-pct">0%</span>
-                        </div>
-                        <div class="progress-bar-bg" style="margin-bottom: 25px;">
-                            <div class="progress-bar-fill" id="dash-tcp-bar" style="width: 0%; background-color: var(--accent-primary);"></div>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span>UDP</span>
-                            <span id="dash-udp-pct">0%</span>
-                        </div>
-                        <div class="progress-bar-bg" style="margin-bottom: 25px;">
-                            <div class="progress-bar-fill" id="dash-udp-bar" style="width: 0%; background-color: var(--status-warning);"></div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 30px;">
-                        <h4 style="font-size: 0.9rem; margin-bottom: 15px; color: var(--text-secondary);">Top Detected Domains</h4>
-                        <table class="data-table" id="dash-domains-table">
-                            <thead>
-                                <tr>
-                                    <th>Domain / SNI</th>
-                                    <th>Detected App</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="2" style="text-align:center; color: var(--text-muted);">No data available</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="notice notice-info" id="dashboard-processing" role="status" hidden>${icon('activity')} Analysis in progress. The overview will update when it finishes. <a href="#logs">View live logs</a></div>
+            <div class="welcome-panel" id="dashboard-welcome">
+                <div class="welcome-icon">${icon('packets', 28)}</div><div><h2>Your traffic, made understandable.</h2><p>Upload a PCAP file to see application activity, protocols, and filtering results.</p></div>
+                <a class="btn btn-secondary" href="#engine">Analyze a capture ${icon('arrowRight')}</a>
             </div>
-        `;
+            <div class="capture-context" id="capture-context" hidden>
+                <span class="capture-file-icon">${icon('file', 20)}</span><div class="capture-context-copy"><span class="overline">LATEST COMPLETED CAPTURE</span><strong id="dash-capture-name"></strong></div>
+                <span id="dash-capture-date" class="capture-date"></span><span class="badge badge-success">${icon('check', 13)} Completed</span>
+            </div>
+            <div class="stats-grid">
+                ${[
+                    ['total-packets', 'Total packets', 'packets', 'Packets inspected'],
+                    ['total-bytes', 'Traffic volume', 'activity', 'Total capture size'],
+                    ['forwarded', 'Forwarded', 'arrowRight', 'Passed filtering rules'],
+                    ['dropped', 'Blocked', 'shield', 'Dropped by filtering rules'],
+                ].map(([id, label, glyph, help]) => `<div class="stat-widget"><div class="stat-top"><span class="stat-label">${label}</span>${icon(glyph)}</div><strong class="stat-value" id="dash-${id}">—</strong><span class="stat-help" id="dash-${id}-help">${help}</span></div>`).join('')}
+            </div>
+            <div class="dashboard-charts">
+                <article class="card">
+                    <div class="card-header"><div><h2 class="card-title">Application breakdown</h2><p class="card-description">Packet distribution across detected applications</p></div><span class="badge badge-neutral" id="dash-app-count">No data</span></div>
+                    <div class="card-body app-chart" id="dash-app-chart"></div>
+                    <div class="card-footer"><span>Top applications by packet count</span><a href="#results">View full breakdown ${icon('arrowRight', 15)}</a></div>
+                </article>
+                <article class="card">
+                    <div class="card-header"><div><h2 class="card-title">Protocol distribution</h2><p class="card-description">Transport protocols in this capture</p></div>${icon('activity')}</div>
+                    <div class="card-body protocol-content">
+                        <div class="protocol-donut" id="protocol-donut" aria-hidden="true"><div><strong id="protocol-total">—</strong><span>packets</span></div></div>
+                        <div id="protocol-legend" class="protocol-legend"></div>
+                    </div>
+                    <div class="card-footer"><span id="protocol-note">Run an analysis to inspect protocols.</span></div>
+                </article>
+            </div>
+            <div class="dashboard-bottom">
+                <article class="card">
+                    <div class="card-header"><div><h2 class="card-title">Detected domains</h2><p class="card-description">Hostnames identified from captured traffic</p></div><span class="badge badge-neutral" id="dash-domain-count">0 domains</span></div>
+                    <div class="table-container"><table class="data-table" id="dash-domains-table"><caption class="sr-only">Up to five detected hostnames and applications</caption><thead><tr><th scope="col">Domain / SNI</th><th scope="col">Application</th></tr></thead><tbody></tbody></table></div>
+                    <div class="card-footer"><span>Showing up to 5 detected domains</span><a href="#results">Explore results ${icon('arrowRight', 15)}</a></div>
+                </article>
+                <article class="card">
+                    <div class="card-header"><div><h2 class="card-title">Recent analyses</h2><p class="card-description">Your latest completed runs</p></div>${icon('clock')}</div>
+                    <div id="dash-history" class="recent-runs"></div>
+                    <div class="card-footer"><span>Up to 20 runs retained</span><a href="#results">View history ${icon('arrowRight', 15)}</a></div>
+                </article>
+            </div>`;
+        this.updateData(null);
+        this.updateHistory([]);
     }
-    
-    escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
 
-    resetData() {
-        // Zero out stats
-        const zeros = {
-            'dash-total-packets': '0',
-            'dash-total-bytes': '0',
-            'dash-forwarded': '0',
-            'dash-dropped': '0',
-            'dash-tcp-pct': '0%',
-            'dash-udp-pct': '0%',
-        };
-        Object.entries(zeros).forEach(([id, val]) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = val;
-        });
-
-        // Reset progress bars
-        const tcpBar = document.getElementById('dash-tcp-bar');
-        const udpBar = document.getElementById('dash-udp-bar');
-        if (tcpBar) tcpBar.style.width = '0%';
-        if (udpBar) udpBar.style.width = '0%';
-
-        // Reset domains table
-        const domainsBody = document.querySelector('#dash-domains-table tbody');
-        if (domainsBody) {
-            domainsBody.innerHTML = '<tr><td colspan="2" style="text-align:center; color: var(--text-muted);">No data available</td></tr>';
-        }
-
-        // Cancel any pending chart creation
-        if (this._chartTimeout) {
-            clearTimeout(this._chartTimeout);
-            this._chartTimeout = null;
-        }
-
-        // Destroy chart
-        if (this.chart) {
-            this.chart.destroy();
-            this.chart = null;
-        }
-    }
-    
     updateData(results) {
-        if(!results || !results.packetStats) return;
-        
-        // Update stats
-        document.getElementById('dash-total-packets').textContent = results.packetStats.totalPackets.toLocaleString();
-        document.getElementById('dash-total-bytes').textContent = results.packetStats.totalBytes.toLocaleString();
-        
-        if (results.filteringStats) {
-            document.getElementById('dash-forwarded').textContent = results.filteringStats.forwarded.toLocaleString();
-            document.getElementById('dash-dropped').textContent = results.filteringStats.dropped.toLocaleString();
-        }
-        
-        // Update Protocol Bars
-        const totalTcpUdp = results.packetStats.tcpPackets + results.packetStats.udpPackets;
-        if(totalTcpUdp > 0) {
-            const tcpPct = (results.packetStats.tcpPackets / totalTcpUdp) * 100;
-            const udpPct = (results.packetStats.udpPackets / totalTcpUdp) * 100;
-            
-            document.getElementById('dash-tcp-pct').textContent = tcpPct.toFixed(1) + '%';
-            document.getElementById('dash-tcp-bar').style.width = tcpPct + '%';
-            
-            document.getElementById('dash-udp-pct').textContent = udpPct.toFixed(1) + '%';
-            document.getElementById('dash-udp-bar').style.width = udpPct + '%';
-        }
-        
-        // Update Chart
-        this.updateChart(results.appBreakdown);
-        
-        // Update Top Domains (take first 5)
-        const domainsBody = document.querySelector('#dash-domains-table tbody');
-        domainsBody.innerHTML = '';
-        if(results.detectedDomains && results.detectedDomains.length > 0) {
-            const topDomains = results.detectedDomains.slice(0, 5);
-            topDomains.forEach(d => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${this.escapeHtml(d.sni)}</td><td><span class="badge">${this.escapeHtml(d.app)}</span></td>`;
-                domainsBody.appendChild(tr);
-            });
-        } else {
-            domainsBody.innerHTML = '<tr><td colspan="2" style="text-align:center; color: var(--text-muted);">No domains detected</td></tr>';
-        }
+        const hasData = Boolean(results?.packetStats);
+        document.getElementById('dashboard-welcome').hidden = hasData;
+        document.getElementById('capture-context').hidden = !hasData;
+        document.getElementById('dash-capture-name').textContent = results?.inputFile || 'Packet capture';
+        document.getElementById('dash-capture-date').textContent = hasData ? formatDate(results.timestamp) : '';
+        const stats = results?.packetStats || {};
+        const total = Number(stats.totalPackets) || 0;
+        const forwarded = Number(results?.filteringStats?.forwarded) || 0;
+        const dropped = Number(results?.filteringStats?.dropped) || 0;
+        const values = { 'total-packets': formatNumber(total), 'total-bytes': formatBytes(stats.totalBytes), forwarded: formatNumber(forwarded), dropped: formatNumber(dropped) };
+        Object.entries(values).forEach(([name, value]) => { document.getElementById(`dash-${name}`).textContent = hasData ? value : '—'; });
+        document.getElementById('dash-forwarded-help').textContent = hasData && total ? `${(forwarded / total * 100).toFixed(1)}% of all packets` : 'Passed filtering rules';
+        document.getElementById('dash-dropped-help').textContent = hasData && total ? `${(dropped / total * 100).toFixed(1)}% of all packets` : 'Dropped by filtering rules';
+
+        const apps = [...(results?.appBreakdown || [])].sort((a, b) => b.count - a.count);
+        const maxCount = Math.max(1, ...apps.map(app => Number(app.count) || 0));
+        document.getElementById('dash-app-count').textContent = `${apps.length} application${apps.length === 1 ? '' : 's'}`;
+        document.getElementById('dash-app-chart').innerHTML = apps.length ? apps.slice(0, 5).map((app, index) => {
+            const percentage = total ? (Number(app.count) || 0) / total * 100 : 0;
+            const width = Math.max(0, Math.min(100, (Number(app.count) || 0) / maxCount * 100));
+            return `<div class="app-chart-row"><div class="app-chart-label"><span><span class="chart-key chart-key-${index}"></span>${escapeHtml(app.app)}</span><span><strong>${formatNumber(app.count)}</strong><small>${percentage.toFixed(1)}%</small></span></div><div class="chart-track" aria-hidden="true"><div class="chart-bar chart-bar-${index}" style="width:${width}%"></div></div></div>`;
+        }).join('') : `<div class="empty-state">${icon('activity', 28)}<strong>${hasData ? 'No applications identified' : 'Application insights will appear here'}</strong><p>${hasData ? 'This capture did not return an application breakdown.' : 'Analyze a PCAP file to see which applications are active.'}</p></div>`;
+
+        const tcp = Math.max(0, Number(stats.tcpPackets) || 0);
+        const udp = Math.max(0, Number(stats.udpPackets) || 0);
+        const other = Math.max(0, total - tcp - udp);
+        const denominator = Math.max(total, tcp + udp);
+        const tcpPct = denominator ? tcp / denominator * 100 : 0;
+        const udpPct = denominator ? udp / denominator * 100 : 0;
+        document.getElementById('protocol-donut').style.background = denominator ? `conic-gradient(var(--chart-blue) 0% ${tcpPct}%, var(--chart-teal) ${tcpPct}% ${tcpPct + udpPct}%, var(--chart-gray) ${tcpPct + udpPct}% 100%)` : 'var(--border-light)';
+        document.getElementById('protocol-total').textContent = hasData ? formatNumber(total) : '—';
+        document.getElementById('protocol-legend').innerHTML = [['TCP', tcp, 'blue'], ['UDP', udp, 'teal'], ['Other', other, 'gray']].map(([name, count, color]) => `<div class="protocol-item"><span><span class="legend-dot legend-${color}"></span>${name}</span><strong>${hasData ? (denominator ? count / denominator * 100 : 0).toFixed(1) + '%' : '—'}</strong><small>${formatNumber(count)} packets</small></div>`).join('');
+        document.getElementById('protocol-note').textContent = hasData ? 'Share of total packets inspected' : 'Run an analysis to inspect protocols.';
+
+        const domains = results?.detectedDomains || [];
+        document.getElementById('dash-domain-count').textContent = `${domains.length} domain${domains.length === 1 ? '' : 's'}`;
+        document.querySelector('#dash-domains-table tbody').innerHTML = domains.length ? domains.slice(0, 5).map(domain => `<tr><td class="domain-cell">${escapeHtml(domain.sni)}</td><td><span class="badge badge-neutral">${escapeHtml(domain.app)}</span></td></tr>`).join('') : `<tr><td colspan="2" class="table-empty">${hasData ? 'No domain names detected in this capture.' : 'Detected domains will appear after an analysis.'}</td></tr>`;
     }
-    
-    updateChart(appData) {
-        if(!appData || appData.length === 0) return;
-        
-        // Take top 6 apps, group rest into "Other"
-        let displayData = [...appData].sort((a,b) => b.count - a.count);
-        if(displayData.length > 6) {
-            const top6 = displayData.slice(0, 6);
-            const others = displayData.slice(6);
-            const otherCount = others.reduce((sum, item) => sum + item.count, 0);
-            top6.push({ app: 'Other', count: otherCount });
-            displayData = top6;
-        }
-        
-        const labels = displayData.map(d => d.app);
-        const data = displayData.map(d => d.count);
-        
-        const colors = [
-            '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#6b7280'
-        ];
-        
-        const ctx = document.getElementById('app-breakdown-chart');
-        
-        if(this.chart) {
-            this.chart.data.labels = labels;
-            this.chart.data.datasets[0].data = data;
-            this.chart.update();
-        } else {
-            // Wait a bit for the canvas to be ready if hidden
-            this._chartTimeout = setTimeout(() => {
-                this._chartTimeout = null;
-                try {
-                    this.chart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                data: data,
-                                backgroundColor: colors,
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'right',
-                                    labels: { color: '#f3f4f6' }
-                                }
-                            }
-                        }
-                    });
-                } catch(e) { console.error('Chart error', e); }
-            }, 100);
-        }
+
+    updateHistory(history) {
+        document.getElementById('dash-history').innerHTML = history.length ? [...history].reverse().slice(0, 3).map(run => `<div class="recent-run"><span class="recent-run-icon">${icon('file', 18)}</span><div><strong title="${escapeHtml(run.inputFile)}">${escapeHtml(run.inputFile || 'Packet capture')}</strong><small>${escapeHtml(formatDate(run.timestamp))}</small></div><span class="recent-run-count">${formatNumber(run.packetStats?.totalPackets)}<small>packets</small></span></div>`).join('') : `<div class="empty-state">${icon('clock', 26)}<strong>No completed analyses yet</strong><p>Completed runs will be saved here.</p></div>`;
     }
 }

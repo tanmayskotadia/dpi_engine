@@ -62,8 +62,15 @@ router.get('/stream', (req, res) => {
     res.setHeader('Connection',    'keep-alive');
 
     engineManager.addListener(res);
-
-    req.on('close', () => engineManager.removeListener(res));
+    // Keep proxy connections alive and let the client detect a silent disconnect.
+    const heartbeat = setInterval(() => {
+        res.write(`data: ${JSON.stringify({ type: 'heartbeat' })}\n\n`);
+    }, 10000);
+    heartbeat.unref();
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        engineManager.removeListener(res);
+    });
 });
 
 module.exports = router;

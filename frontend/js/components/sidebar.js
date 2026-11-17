@@ -1,44 +1,29 @@
 export function initNavigation() {
-    const navItems = document.querySelectorAll('.nav-item');
-    const sections = document.querySelectorAll('.view-section');
-    const pageTitle = document.getElementById('page-title');
-
-    const VALID_ROUTES = new Set(['dashboard', 'engine', 'results', 'logs']);
-
-    // Hash routing
-    const handleRoute = () => {
-        let hash = window.location.hash.replace('#', '');
-
-        // Fall back to dashboard for empty or unknown routes
-        if (!hash || !VALID_ROUTES.has(hash)) {
-            hash = 'dashboard';
-            // Silently correct URL without pushing to history
+    const labels = { dashboard: 'Overview', engine: 'Analyze capture', results: 'Results', logs: 'Console' };
+    const handleRoute = (event) => {
+        let route = location.hash.slice(1);
+        if (!Object.hasOwn(labels, route)) {
+            route = 'dashboard';
             history.replaceState(null, '', '#dashboard');
         }
-
-        navItems.forEach(item => {
-            if (item.dataset.target === hash) {
-                item.classList.add('active');
-                // Extract only text nodes (skip icon text)
-                const label = [...item.childNodes]
-                    .filter(n => n.nodeType === Node.TEXT_NODE)
-                    .map(n => n.textContent.trim())
-                    .join('');
-                pageTitle.textContent = label || item.textContent.trim();
-            } else {
-                item.classList.remove('active');
-            }
+        document.querySelectorAll('.nav-item').forEach(item => {
+            const active = item.dataset.target === route;
+            item.classList.toggle('active', active);
+            if (active) item.setAttribute('aria-current', 'page');
+            else item.removeAttribute('aria-current');
         });
-
-        sections.forEach(section => {
-            if (section.id === `view-${hash}`) {
-                section.classList.add('active');
-            } else {
-                section.classList.remove('active');
-            }
-        });
+        document.querySelectorAll('.view-section').forEach(section => { section.hidden = section.id !== `view-${route}`; });
+        document.getElementById('page-title').textContent = labels[route];
+        document.title = `${labels[route]} · DPI Engine`;
+        if (event) {
+            document.getElementById('main-content').focus({ preventScroll: true });
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
     };
-
     window.addEventListener('hashchange', handleRoute);
-    handleRoute(); // initial
+    document.querySelector('.skip-link').addEventListener('click', event => {
+        event.preventDefault();
+        document.getElementById('main-content').focus();
+    });
+    handleRoute();
 }

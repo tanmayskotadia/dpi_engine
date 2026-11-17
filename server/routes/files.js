@@ -86,6 +86,35 @@ router.get('/list', (_req, res) => {
     }
 });
 
+// Completed captures are downloadable only from the dedicated output directory.
+router.get('/download/:filename', (req, res) => {
+    const filename = req.params.filename;
+    if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..') || !/^[a-zA-Z0-9._-]+$/.test(filename)) {
+        return res.status(400).json({ error: 'Invalid output filename' });
+    }
+    const outputDirectory = path.resolve(config.PCAP_OUTPUT_PATH);
+    const filePath = path.resolve(outputDirectory, filename);
+    if (path.dirname(filePath) !== outputDirectory) {
+        return res.status(400).json({ error: 'Invalid output filename' });
+    }
+    try {
+        // Reject symlinks and directories, even when their names look valid.
+        if (!fs.lstatSync(filePath).isFile()) {
+            return res.status(404).json({ error: 'Output capture not found. Run the analysis again to generate it.' });
+        }
+        const engineManager = require('../engine-manager');
+        if (engineManager.isProcessingFile(filePath)) {
+            return res.status(409).json({ error: 'This capture is still being written. Wait for the analysis to finish.' });
+        }
+        res.download(filePath, filename, { headers: { 'Cache-Control': 'no-store' } }, error => {
+            if (error && !res.headersSent) res.status(404).json({ error: 'Output capture is no longer available.' });
+        });
+    } catch (error) {
+        if (error.code === 'ENOENT') return res.status(404).json({ error: 'Output capture not found. Run the analysis again to generate it.' });
+        res.status(500).json({ error: 'Unable to download this output capture.' });
+    }
+});
+
 // ── DELETE /api/files/:filename ───────────────────────────────────────────────
 router.delete('/:filename', (req, res) => {
     try {

@@ -1,5 +1,29 @@
 # DPI Engine - Deep Packet Inspection System
 
+## Web workspace
+
+The web interface provides top navigation, a responsive overview, capture upload and engine controls, blocking rules, saved analysis results, and live console output. It uses local icons and native browser controls, without external font or chart CDNs.
+
+```bash
+npm install
+npm --prefix frontend install
+npm run build:engine
+npm run build:frontend
+npm start
+```
+
+For frontend development, run `npm run dev` in a second terminal and open `http://localhost:5173`. To serve the production interface from the backend, run `npm run build:frontend` before `npm start`, then open `http://localhost:3000`.
+
+1. Open **Analyze capture** and upload a classic `.pcap` capture. PCAPNG and nanosecond PCAP captures must first be exported as microsecond PCAP.
+2. Review blocking rules and start the analysis. Rules changed during a run apply to the next analysis.
+3. Open **Results** to switch between saved runs, search domains, export the JSON report, or download the filtered PCAP.
+4. Use **Console** to follow, pause scrolling, copy, or download engine output.
+
+If the frontend uses a separate backend, set `VITE_API_URL` to its API base URL (for example, `https://your-backend.example/api`). Both API requests and live updates use this setting.
+
+Run `npm test` for the automated regression checks and `npm run build:frontend` to validate the frontend build.
+
+---
 
 This document provides a comprehensive overview of the project, covering the networking concepts, system architecture, packet processing pipeline, and implementation details to help readers understand how the DPI engine works.
 
