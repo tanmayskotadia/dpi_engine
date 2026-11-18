@@ -18,6 +18,7 @@ const paths = {
     settings: '<path d="M12 3v3m0 12v3M3 12h3m12 0h3M6 6l2 2m8 8 2 2M6 18l2-2M16 8l2-2"/><circle cx="12" cy="12" r="5"/>',
     trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
+    link: '<path d="M10 13a4 4 0 0 0 6 .5l3-3a4 4 0 0 0-6-6l-2 2M14 11a4 4 0 0 0-6-.5l-3 3a4 4 0 0 0 6 6l2-2"/>',
     alert: '<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v4m0 4h.01"/>',
     x: '<path d="m6 6 12 12M6 18 18 6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',

@@ -29,8 +29,17 @@
                     </nav>
                 </div>
                 <div class="topbar">
-                    <div class="engine-status-indicator" id="global-status" role="status"><span class="status-dot status-idle"></span><span class="status-text">Connecting</span></div>
-                    <div class="topbar-actions"><span class="current-file-badge" id="current-file-badge" hidden></span><span class="connection-status" id="connection-status" role="status"><span class="status-dot status-idle"></span><span>Connecting</span></span></div>
+                    <div class="status-strip">
+                        <div id="global-status" class="engine-status-indicator" role="status" aria-label="Analysis engine">
+                            <span class="status-symbol" data-icon="clock" aria-hidden="true"></span>
+                            <span class="status-text">Waiting for connection</span>
+                        </div>
+                        <div id="connection-status" class="connection-status" role="status" aria-label="Server connection">
+                            <span class="status-symbol" data-icon="refresh" aria-hidden="true"></span>
+                            <span class="status-text">Connecting</span>
+                        </div>
+                    </div>
+                    <span class="current-file-badge" id="current-file-badge" hidden></span>
                 </div>
             </div>
         </header>
