@@ -10,7 +10,8 @@ export function initStatusMonitor(state) {
         statusText.textContent = label;
         statusDot.className = `status-dot status-${style}`;
         const file = document.getElementById('current-file-badge');
-        file.textContent = status.currentFile || 'No active capture';
+        file.hidden = !status.currentFile;
+        file.textContent = status.currentFile || '';
         file.title = status.currentFile || '';
     };
     state.on('status', update);

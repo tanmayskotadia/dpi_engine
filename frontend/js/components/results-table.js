@@ -35,7 +35,7 @@ export class ResultsView {
     render() {
         this.container.innerHTML = `
             <div class="page-heading">
-                <div><p class="eyebrow">TRAFFIC INSIGHTS</p><h1>Analysis results</h1><p>Inspect classified traffic, detected domains, and processing statistics.</p></div>
+                <h1>Analysis results</h1>
                 <a href="#engine" class="btn btn-primary">${icon('plus')} New analysis</a>
             </div>
             <div class="card run-selector-card">
@@ -49,7 +49,7 @@ export class ResultsView {
             <div class="card empty-state" id="results-empty">
                 <span class="empty-state-icon">${icon('list', 28)}</span>
                 <h2>No analysis results yet</h2>
-                <p>Run a packet capture through the engine to explore its applications, domains, and traffic breakdown.</p>
+                <p>Analyze a capture to create your first report.</p>
                 <a class="btn btn-primary" href="#engine">${icon('play')} Start an analysis</a>
             </div>
             <div id="results-content" class="results-content" hidden>
@@ -60,8 +60,8 @@ export class ResultsView {
                         <div><h2 id="results-file-name" class="card-title"></h2><p id="results-run-time" class="help-text"></p></div>
                     </div>
                     <div class="inline-actions">
-                        <button class="btn btn-secondary btn-sm" id="btn-download-report" type="button">${icon('download')} Export report</button>
-                        <button class="btn btn-secondary btn-sm" id="btn-download-pcap" type="button">${icon('download')} Download PCAP</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-download-report" type="button">${icon('download')} Export JSON</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-download-pcap" type="button">${icon('download')} Download capture</button>
                     </div>
                     <dl class="result-facts">
                         <div><dt>Total packets</dt><dd id="results-packets"></dd></div>
@@ -73,7 +73,7 @@ export class ResultsView {
                 </div>
                 <div class="card">
                     <div class="card-header">
-                        <div><h2 class="card-title">Application breakdown</h2><p class="card-description">Packet classifications reported by the engine.</p></div>
+                        <h2 class="card-title">Application breakdown</h2>
                         <span class="badge badge-neutral" id="results-app-count">0 applications</span>
                     </div>
                     <div class="table-container">
@@ -265,7 +265,7 @@ export class ResultsView {
             this.get('results-error').hidden = false;
         } finally {
             button.disabled = !this.result?.outputFile;
-            button.innerHTML = `${icon('download')} Download PCAP`;
+            button.innerHTML = `${icon('download')} Download capture`;
         }
     }
 }

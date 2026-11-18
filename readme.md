@@ -22,7 +22,7 @@ Live enforcement uses Windows Defender Firewall on the computer running the serv
 
 ## Use the workspace
 
-1. Open **Analyze capture**. Upload a PCAP/PCAPNG file, select a saved capture, or use **Live capture** to record an adapter.
+1. Open **Captures**. Upload a PCAP/PCAPNG file, select a saved capture, or use **Live capture** to record an adapter.
 2. Add IP/network, application, domain, port, or protocol rules.
 3. Run the analysis. The rules are snapshotted at the start; edits apply to the next run.
 4. Open **Results** for packet counts, inspection limitations, blocking reasons, domain search, JSON export, and the filtered capture.

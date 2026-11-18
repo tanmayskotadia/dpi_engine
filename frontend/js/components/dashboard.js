@@ -16,17 +16,17 @@ export class Dashboard {
     render() {
         this.container.innerHTML = `
             <div class="page-heading">
-                <div><div class="eyebrow">NETWORK ANALYTICS</div><h1>Traffic overview</h1><p>A clear picture of your latest packet capture.</p></div>
+                <h1>Traffic overview</h1>
                 <a class="btn btn-primary" href="#engine">${icon('plus')} New analysis</a>
             </div>
             <div class="notice notice-info" id="dashboard-processing" role="status" hidden>${icon('activity')} Analysis in progress. The overview will update when it finishes. <a href="#logs">View live logs</a></div>
             <div class="welcome-panel" id="dashboard-welcome">
-                <div class="welcome-icon">${icon('packets', 28)}</div><div><h2>Your traffic, made understandable.</h2><p>Upload a PCAP file to see application activity, protocols, and filtering results.</p></div>
+                <div class="welcome-icon">${icon('packets', 28)}</div><div><h2>No completed captures</h2><p>Record packets from an interface or upload a PCAP or PCAPNG file.</p></div>
                 <a class="btn btn-secondary" href="#engine">Analyze a capture ${icon('arrowRight')}</a>
             </div>
             <div class="capture-context" id="capture-context" hidden>
                 <span class="capture-file-icon">${icon('file', 20)}</span><div class="capture-context-copy"><span class="overline">LATEST COMPLETED CAPTURE</span><strong id="dash-capture-name"></strong></div>
-                <span id="dash-capture-date" class="capture-date"></span><span class="badge badge-success">${icon('check', 13)} Completed</span>
+                <span id="dash-capture-date" class="capture-date"></span>
             </div>
             <div class="stats-grid">
                 ${[
@@ -38,12 +38,12 @@ export class Dashboard {
             </div>
             <div class="dashboard-charts">
                 <article class="card">
-                    <div class="card-header"><div><h2 class="card-title">Application breakdown</h2><p class="card-description">Packet distribution across detected applications</p></div><span class="badge badge-neutral" id="dash-app-count">No data</span></div>
+                    <div class="card-header"><h2 class="card-title">Application breakdown</h2><span class="badge badge-neutral" id="dash-app-count">No data</span></div>
                     <div class="card-body app-chart" id="dash-app-chart"></div>
                     <div class="card-footer"><span>Top applications by packet count</span><a href="#results">View full breakdown ${icon('arrowRight', 15)}</a></div>
                 </article>
                 <article class="card">
-                    <div class="card-header"><div><h2 class="card-title">Protocol distribution</h2><p class="card-description">Network and transport protocols in this capture</p></div>${icon('activity')}</div>
+                    <div class="card-header"><h2 class="card-title">Protocol distribution</h2></div>
                     <div class="card-body protocol-content">
                         <div class="protocol-donut" id="protocol-donut" aria-hidden="true"><div><strong id="protocol-total">—</strong><span>packets</span></div></div>
                         <div id="protocol-legend" class="protocol-legend"></div>
@@ -53,12 +53,12 @@ export class Dashboard {
             </div>
             <div class="dashboard-bottom">
                 <article class="card">
-                    <div class="card-header"><div><h2 class="card-title">Detected domains</h2><p class="card-description">Hostnames identified from captured traffic</p></div><span class="badge badge-neutral" id="dash-domain-count">0 domains</span></div>
+                    <div class="card-header"><h2 class="card-title">Detected domains</h2><span class="badge badge-neutral" id="dash-domain-count">0 domains</span></div>
                     <div class="table-container"><table class="data-table" id="dash-domains-table"><caption class="sr-only">Up to five detected hostnames and applications</caption><thead><tr><th scope="col">Domain / SNI</th><th scope="col">Application</th></tr></thead><tbody></tbody></table></div>
                     <div class="card-footer"><span>Showing up to 5 detected domains</span><a href="#results">Explore results ${icon('arrowRight', 15)}</a></div>
                 </article>
                 <article class="card">
-                    <div class="card-header"><div><h2 class="card-title">Recent analyses</h2><p class="card-description">Your latest completed runs</p></div>${icon('clock')}</div>
+                    <div class="card-header"><h2 class="card-title">Recent analyses</h2></div>
                     <div id="dash-history" class="recent-runs"></div>
                     <div class="card-footer"><span>Up to 20 runs retained</span><a href="#results">View history ${icon('arrowRight', 15)}</a></div>
                 </article>
@@ -89,17 +89,17 @@ export class Dashboard {
             const percentage = total ? (Number(app.count) || 0) / total * 100 : 0;
             const width = Math.max(0, Math.min(100, (Number(app.count) || 0) / maxCount * 100));
             return `<div class="app-chart-row"><div class="app-chart-label"><span><span class="chart-key chart-key-${index}"></span>${escapeHtml(app.app)}</span><span><strong>${formatNumber(app.count)}</strong><small>${percentage.toFixed(1)}%</small></span></div><div class="chart-track" aria-hidden="true"><div class="chart-bar chart-bar-${index}" style="width:${width}%"></div></div></div>`;
-        }).join('') : `<div class="empty-state">${icon('activity', 28)}<strong>${hasData ? 'No applications identified' : 'Application insights will appear here'}</strong><p>${hasData ? 'This capture did not return an application breakdown.' : 'Analyze a PCAP file to see which applications are active.'}</p></div>`;
+        }).join('') : `<div class="empty-state"><strong>${hasData ? 'No applications identified in this capture.' : 'No capture analyzed.'}</strong></div>`;
 
         const protocols = [
-            ['TCP', Number(stats.tcpPackets) || 0, '#39767c'],
-            ['UDP', Number(stats.udpPackets) || 0, '#80a59b'],
-            ['ICMP', Number(stats.icmpPackets) || 0, '#b28c58'],
-            ['ICMPv6', Number(stats.icmpv6Packets) || 0, '#8d87a8'],
-            ['ARP', Number(stats.arpPackets) || 0, '#8b9b70'],
+            ['TCP', Number(stats.tcpPackets) || 0, '#000000'],
+            ['UDP', Number(stats.udpPackets) || 0, '#969696'],
+            ['ICMP', Number(stats.icmpPackets) || 0, '#393939'],
+            ['ICMPv6', Number(stats.icmpv6Packets) || 0, '#b8b8b8'],
+            ['ARP', Number(stats.arpPackets) || 0, '#686868'],
         ];
         const known = protocols.reduce((sum, [, count]) => sum + count, 0);
-        protocols.push(['Other', Math.max(0, total - known), '#cbd2d0']);
+        protocols.push(['Other', Math.max(0, total - known), '#d8d8d8']);
         let position = 0;
         const segments = protocols.map(([, count, color]) => {
             const start = position;
