@@ -4,7 +4,7 @@ export class StateManager {
     constructor() {
         this.status = { state: 'idle' };
         this.connection = { state: 'connecting' };
-        this.rules = { blockedIPs: [], blockedApps: [], blockedDomains: [] };
+        this.rules = { blockedIPs: [], blockedApps: [], blockedDomains: [], blockedPorts: [], blockedProtocols: [] };
         this.latestResults = null;
         this.history = [];
         this.listeners = new Map();

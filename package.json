@@ -4,7 +4,8 @@
   "description": "This document provides a comprehensive overview of the project, covering the networking concepts, system architecture, packet processing pipeline, and implementation details to help readers understand how the DPI engine works.",
   "main": "index.js",
   "scripts": {
-    "test":               "node --test tests/*.test.js",
+    "pretest":            "npm run build:engine",
+    "test":               "node scripts/test-native.js && node --test tests/*.test.js",
     "start":              "node server/server.js",
     "server":             "node server/server.js",
     "dev":               "cd frontend && npm run dev",

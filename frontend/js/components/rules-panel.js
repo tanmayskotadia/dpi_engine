@@ -2,14 +2,17 @@ import { api } from '../api.js';
 import { icon, escapeHtml } from '../ui.js';
 
 const RULE_TYPES = [
-    { type: 'ip', key: 'blockedIPs', title: 'IP addresses', label: 'Source IPv4 address', icon: 'server', placeholder: '192.168.1.50', help: 'Blocks traffic from this source address.', empty: 'No IP addresses blocked.' },
-    { type: 'app', key: 'blockedApps', title: 'Applications', label: 'Application or protocol', icon: 'shield', help: 'Blocks traffic classified as this application.', empty: 'No applications blocked.' },
-    { type: 'domain', key: 'blockedDomains', title: 'Domains', label: 'Domain name', icon: 'globe', placeholder: 'example.com', help: 'Matches text within detected domain names. No wildcards.', empty: 'No domains blocked.' },
+    { type: 'ip', key: 'blockedIPs', title: 'IP addresses & networks', label: 'IPv4, IPv6, or CIDR network', icon: 'server', placeholder: '192.168.1.0/24 or 2001:db8::/32', help: 'Matches either source or destination. CIDR host bits are cleared when saved.', empty: 'No IP addresses or networks blocked.', maxLength: 49 },
+    { type: 'app', key: 'blockedApps', title: 'Applications', label: 'Application or application protocol', icon: 'shield', help: 'Matches traffic classified as this application. Classification may require several packets.', empty: 'No applications blocked.' },
+    { type: 'domain', key: 'blockedDomains', title: 'Domains', label: 'Domain or subdomain pattern', icon: 'globe', placeholder: 'example.com or *.example.com', help: 'example.com includes its subdomains. *.example.com matches subdomains only. Requires a visible hostname.', empty: 'No domains blocked.', maxLength: 255 },
+    { type: 'port', key: 'blockedPorts', title: 'Ports', label: 'Port or port range', icon: 'server', placeholder: '443 or tcp:8000-8080', help: 'Matches either endpoint, from 1 to 65535. Use tcp: or udp: to restrict the transport.', empty: 'No ports blocked.', maxLength: 15 },
+    { type: 'protocol', key: 'blockedProtocols', title: 'Network protocols', label: 'Protocol', icon: 'shield', help: 'Blocks all packets of the selected network or transport protocol.', empty: 'No network protocols blocked.' },
 ];
 
 // These values must match appTypeToString in the C++ engine.
 const APPLICATIONS = ['Amazon', 'Apple', 'Cloudflare', 'Discord', 'Facebook', 'GitHub', 'Google', 'Instagram', 'Microsoft', 'Netflix', 'Spotify', 'Telegram', 'TikTok', 'Twitter/X', 'WhatsApp', 'YouTube', 'Zoom'];
-const PROTOCOLS = ['DNS', 'HTTP', 'HTTPS', 'QUIC', 'TLS', 'Unknown'];
+const APPLICATION_PROTOCOLS = ['DNS', 'HTTP', 'HTTPS', 'QUIC', 'TLS', 'Unknown'];
+const NETWORK_PROTOCOLS = ['tcp', 'udp', 'icmp', 'icmpv6', 'arp'];
 
 export class RulesPanel {
     constructor(state) {
@@ -27,7 +30,7 @@ export class RulesPanel {
             <div class="section-heading">
                 <div>
                     <h2 id="blocking-rules-heading">Blocking rules <span class="badge badge-neutral" id="rules-total-count">0 rules</span></h2>
-                    <p class="help-text">Changes apply to your next analysis. Captures are processed using the rules saved when a run starts.</p>
+                    <p class="help-text">Capture filtering uses the rules saved when each analysis starts. Changes apply to the next run and do not apply a live firewall policy.</p>
                 </div>
             </div>
             <div class="grid grid-cols-3" aria-labelledby="blocking-rules-heading">
@@ -64,10 +67,13 @@ export class RulesPanel {
             return `<select ${attributes}>
                 <option value="">Select application</option>
                 <optgroup label="Applications">${options(APPLICATIONS)}</optgroup>
-                <optgroup label="Protocols and other traffic">${options(PROTOCOLS)}</optgroup>
+                <optgroup label="Application protocols and other traffic">${options(APPLICATION_PROTOCOLS)}</optgroup>
             </select>`;
         }
-        return `<input ${attributes} type="text" placeholder="${rule.placeholder}" maxlength="${rule.type === 'ip' ? 15 : 253}" autocomplete="off" autocapitalize="none" spellcheck="false"${rule.type === 'ip' ? ' inputmode="decimal"' : ''}>`;
+        if (rule.type === 'protocol') {
+            return `<select ${attributes}><option value="">Select protocol</option>${NETWORK_PROTOCOLS.map(value => `<option value="${value}">${value === 'icmpv6' ? 'ICMPv6' : value.toUpperCase()}</option>`).join('')}</select>`;
+        }
+        return `<input ${attributes} type="text" placeholder="${rule.placeholder}" maxlength="${rule.maxLength}" autocomplete="off" autocapitalize="none" spellcheck="false">`;
     }
 
     bindEvents() {
@@ -89,18 +95,33 @@ export class RulesPanel {
     }
 
     validate(rule, value) {
-        if (!value) return rule.type === 'app' ? 'Choose an application or protocol.' : `Enter ${rule.type === 'ip' ? 'an IPv4 address' : 'a domain name'}.`;
+        if (!value) return `Enter or select ${rule.label.toLowerCase()}.`;
         if (rule.type === 'ip') {
-            const octets = value.split('.');
-            if (octets.length !== 4 || octets.some(part => !/^\d{1,3}$/.test(part) || Number(part) > 255)) {
-                return 'Enter a valid IPv4 address, such as 192.168.1.50.';
+            const [address, prefix, extra] = value.split('/');
+            const ipv6 = address.includes(':');
+            let valid = false;
+            if (ipv6 && !/[\s%\[\]]/.test(address)) {
+                try { valid = new URL(`http://[${address}]/`).hostname.startsWith('['); } catch { /* Show the validation message below. */ }
+            } else if (!ipv6) {
+                const octets = address.split('.');
+                valid = octets.length === 4 && octets.every(part => /^(0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255);
+            }
+            if (!valid || extra !== undefined || (prefix !== undefined && (!/^\d{1,3}$/.test(prefix) || Number(prefix) > (ipv6 ? 128 : 32)))) {
+                return 'Enter an IPv4 or IPv6 address, optionally with a CIDR prefix, such as 192.168.1.0/24 or 2001:db8::/32.';
             }
         }
         if (rule.type === 'domain') {
-            const valid = value.length <= 253 && value.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
-            if (!valid) return 'Enter a domain such as example.com, without a URL, path, or wildcard.';
+            let domain = value.replace(/^\*\./, '').replace(/\.$/, '');
+            if (!domain || /[\s/:@?#%*\\]/.test(domain)) return 'Enter a domain such as example.com or *.example.com, without a URL, port, or path.';
+            try { domain = new URL(`http://${domain}`).hostname; } catch { return 'Enter a valid domain name.'; }
+            if (domain.length > 253 || !domain.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))) return 'Enter a valid domain name.';
         }
-        if (rule.type === 'app' && ![...APPLICATIONS, ...PROTOCOLS].includes(value)) return 'Choose an application from the list.';
+        if (rule.type === 'port') {
+            const match = value.match(/^(?:(tcp|udp):)?(\d{1,5})(?:-(\d{1,5}))?$/i);
+            if (!match || Number(match[2]) < 1 || Number(match[3] || match[2]) > 65535 || Number(match[2]) > Number(match[3] || match[2])) return 'Use a port from 1 to 65535, or a range such as tcp:8000-8080.';
+        }
+        if (rule.type === 'app' && ![...APPLICATIONS, ...APPLICATION_PROTOCOLS].includes(value)) return 'Choose an application from the list.';
+        if (rule.type === 'protocol' && !NETWORK_PROTOCOLS.includes(value)) return 'Choose a network protocol from the list.';
         return null;
     }
 
@@ -115,7 +136,6 @@ export class RulesPanel {
             input.focus();
             return;
         }
-        if (rule.type === 'ip') value = value.split('.').map(Number).join('.');
         if (rule.type === 'domain') value = value.toLowerCase();
         if ((this.state.rules?.[rule.key] || []).includes(value)) {
             this.showNotice(rule.type, 'This rule is already saved.', 'info');
@@ -128,10 +148,12 @@ export class RulesPanel {
         this.hideNotice(rule.type);
         button.textContent = 'Adding…';
         try {
+            const previous = this.state.rules?.[rule.key] || [];
             const rules = await api.addRule(rule.type, value);
+            const addedValue = (rules[rule.key] || []).find(item => !previous.includes(item));
             this.publishRules(rules);
             input.value = '';
-            this.showNotice(rule.type, `Added ${value}. Applies to the next analysis.`, 'success');
+            this.showNotice(rule.type, addedValue ? `Added ${addedValue}. Applies to the next analysis.` : 'This rule is already saved.', addedValue ? 'success' : 'info');
         } catch (error) {
             this.showNotice(rule.type, `Could not add this rule. ${error.message}`, 'error');
         } finally {
@@ -165,6 +187,7 @@ export class RulesPanel {
     publishRules(rules) {
         this.state.rules = rules;
         this.state.notify('rules', rules);
+        this.state.setDataError?.('blocking rules', false);
     }
 
     setBusy(busy) {

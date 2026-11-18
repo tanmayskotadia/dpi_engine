@@ -46,7 +46,8 @@ const PCAP_OUTPUT_PATH = process.env.PCAP_OUTPUT_PATH
 });
 
 // ── History storage ─────────────────────────────────────────────────────────
-const HISTORY_PATH = path.join(__dirname, 'data', 'history.json');
+const HISTORY_PATH = process.env.HISTORY_PATH ? path.resolve(process.env.HISTORY_PATH) : path.join(__dirname, 'data', 'history.json');
+const RULES_PATH = process.env.RULES_PATH ? path.resolve(process.env.RULES_PATH) : path.join(__dirname, 'data', 'rules.json');
 const HISTORY_DIR  = path.dirname(HISTORY_PATH);
 if (!fs.existsSync(HISTORY_DIR)) fs.mkdirSync(HISTORY_DIR, { recursive: true });
 
@@ -86,6 +87,7 @@ module.exports = {
     PCAP_STORAGE_PATH,
     PCAP_OUTPUT_PATH,
     HISTORY_PATH,
+    RULES_PATH,
     PCAP_MAX_FILE_SIZE_BYTES,
     ENGINE_MAX_LBS,
     ENGINE_MAX_FPS_PER_LB,

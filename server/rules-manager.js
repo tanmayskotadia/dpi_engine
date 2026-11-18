@@ -1,94 +1,95 @@
-const fs = require('fs');
-const path = require('path');
-
-const rulesFilePath = path.join(__dirname, 'data', 'rules.json');
+const fs = require('node:fs');
+const path = require('node:path');
+const { randomUUID } = require('node:crypto');
+const config = require('./config');
+const { RULE_KEYS, emptyRules, normalizeRule, normalizeRules } = require('./rule-validation');
 
 class RulesManager {
-    constructor() {
-        this.rules = {
-            blockedIPs: [],
-            blockedApps: [],
-            blockedDomains: []
-        };
-        
+    constructor(filePath = config.RULES_PATH || process.env.RULES_PATH || path.join(__dirname, 'data', 'rules.json')) {
+        this.filePath = path.resolve(filePath);
+        this.rules = emptyRules();
+        this.loadError = null;
         this.loadRules();
     }
-    
+
     loadRules() {
-        if (fs.existsSync(rulesFilePath)) {
-            try {
-                const data = fs.readFileSync(rulesFilePath, 'utf8');
-                this.rules = JSON.parse(data);
-            } catch (err) {
-                console.error("Failed to load rules:", err);
-            }
-        } else {
-            this.saveRules(); // Create initial file
-        }
-    }
-    
-    saveRules() {
-        // Ensure directory exists
-        if (!fs.existsSync(path.dirname(rulesFilePath))) {
-            fs.mkdirSync(path.dirname(rulesFilePath), { recursive: true });
-        }
-        
         try {
-            fs.writeFileSync(rulesFilePath, JSON.stringify(this.rules, null, 2));
-        } catch (err) {
-            console.error("Failed to save rules:", err);
+            this.rules = normalizeRules(JSON.parse(fs.readFileSync(this.filePath, 'utf8')));
+            this.loadError = null;
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                this.rules = emptyRules();
+                this.loadError = null;
+            } else {
+                // Never silently treat unreadable or invalid rules as an empty policy.
+                this.loadError = new Error('Saved blocking rules could not be loaded. Correct the rules file and restart the server before starting an analysis.', { cause: error });
+            }
         }
     }
-    
+
+    assertReady() {
+        if (this.loadError) throw this.loadError;
+    }
+
+    saveRules(nextRules = this.rules) {
+        const directory = path.dirname(this.filePath);
+        const temporaryPath = path.join(directory, `.${path.basename(this.filePath)}.${process.pid}.${randomUUID()}.tmp`);
+        try {
+            fs.mkdirSync(directory, { recursive: true });
+            fs.writeFileSync(temporaryPath, JSON.stringify(nextRules, null, 2) + '\n', { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+            fs.renameSync(temporaryPath, this.filePath);
+        } catch (error) {
+            try { fs.unlinkSync(temporaryPath); } catch { /* The temporary file may not have been created. */ }
+            throw new Error('Blocking rules could not be saved. Check the server storage permissions and try again.', { cause: error });
+        }
+        // Publish only after the new policy has been persisted successfully.
+        this.rules = nextRules;
+        this.loadError = null;
+    }
+
     getRules() {
-        return this.rules;
+        this.assertReady();
+        return structuredClone(this.rules);
     }
-    
-    addIP(ip) {
-        if (!this.rules.blockedIPs.includes(ip)) {
-            this.rules.blockedIPs.push(ip);
-            this.saveRules();
+
+    addRule(type, value) {
+        const canonical = normalizeRule(type, value);
+        this.assertReady();
+        const key = RULE_KEYS[type];
+        if (!this.rules[key].includes(canonical)) {
+            this.saveRules({ ...this.rules, [key]: [...this.rules[key], canonical] });
         }
+        return this.getRules();
     }
-    
-    removeIP(ip) {
-        this.rules.blockedIPs = this.rules.blockedIPs.filter(i => i !== ip);
-        this.saveRules();
-    }
-    
-    addApp(app) {
-        if (!this.rules.blockedApps.includes(app)) {
-            this.rules.blockedApps.push(app);
-            this.saveRules();
+
+    removeRule(type, value) {
+        const canonical = normalizeRule(type, value);
+        this.assertReady();
+        const key = RULE_KEYS[type];
+        if (this.rules[key].includes(canonical)) {
+            this.saveRules({ ...this.rules, [key]: this.rules[key].filter(item => item !== canonical) });
         }
+        return this.getRules();
     }
-    
-    removeApp(app) {
-        this.rules.blockedApps = this.rules.blockedApps.filter(a => a !== app);
-        this.saveRules();
-    }
-    
-    addDomain(domain) {
-        if (!this.rules.blockedDomains.includes(domain)) {
-            this.rules.blockedDomains.push(domain);
-            this.saveRules();
-        }
-    }
-    
-    removeDomain(domain) {
-        this.rules.blockedDomains = this.rules.blockedDomains.filter(d => d !== domain);
-        this.saveRules();
-    }
-    
+
+    // Retain the existing manager API for integrations.
+    addIP(value) { return this.addRule('ip', value); }
+    removeIP(value) { return this.removeRule('ip', value); }
+    addApp(value) { return this.addRule('app', value); }
+    removeApp(value) { return this.removeRule('app', value); }
+    addDomain(value) { return this.addRule('domain', value); }
+    removeDomain(value) { return this.removeRule('domain', value); }
+    addPort(value) { return this.addRule('port', value); }
+    removePort(value) { return this.removeRule('port', value); }
+    addProtocol(value) { return this.addRule('protocol', value); }
+    removeProtocol(value) { return this.removeRule('protocol', value); }
+
     clearAll() {
-        this.rules = {
-            blockedIPs: [],
-            blockedApps: [],
-            blockedDomains: []
-        };
-        this.saveRules();
+        this.saveRules(emptyRules());
+        return this.getRules();
     }
 }
 
 const rulesManager = new RulesManager();
 module.exports = rulesManager;
+module.exports.RulesManager = RulesManager;

@@ -43,7 +43,7 @@ export class Dashboard {
                     <div class="card-footer"><span>Top applications by packet count</span><a href="#results">View full breakdown ${icon('arrowRight', 15)}</a></div>
                 </article>
                 <article class="card">
-                    <div class="card-header"><div><h2 class="card-title">Protocol distribution</h2><p class="card-description">Transport protocols in this capture</p></div>${icon('activity')}</div>
+                    <div class="card-header"><div><h2 class="card-title">Protocol distribution</h2><p class="card-description">Network and transport protocols in this capture</p></div>${icon('activity')}</div>
                     <div class="card-body protocol-content">
                         <div class="protocol-donut" id="protocol-donut" aria-hidden="true"><div><strong id="protocol-total">—</strong><span>packets</span></div></div>
                         <div id="protocol-legend" class="protocol-legend"></div>
@@ -91,16 +91,25 @@ export class Dashboard {
             return `<div class="app-chart-row"><div class="app-chart-label"><span><span class="chart-key chart-key-${index}"></span>${escapeHtml(app.app)}</span><span><strong>${formatNumber(app.count)}</strong><small>${percentage.toFixed(1)}%</small></span></div><div class="chart-track" aria-hidden="true"><div class="chart-bar chart-bar-${index}" style="width:${width}%"></div></div></div>`;
         }).join('') : `<div class="empty-state">${icon('activity', 28)}<strong>${hasData ? 'No applications identified' : 'Application insights will appear here'}</strong><p>${hasData ? 'This capture did not return an application breakdown.' : 'Analyze a PCAP file to see which applications are active.'}</p></div>`;
 
-        const tcp = Math.max(0, Number(stats.tcpPackets) || 0);
-        const udp = Math.max(0, Number(stats.udpPackets) || 0);
-        const other = Math.max(0, total - tcp - udp);
-        const denominator = Math.max(total, tcp + udp);
-        const tcpPct = denominator ? tcp / denominator * 100 : 0;
-        const udpPct = denominator ? udp / denominator * 100 : 0;
-        document.getElementById('protocol-donut').style.background = denominator ? `conic-gradient(var(--chart-blue) 0% ${tcpPct}%, var(--chart-teal) ${tcpPct}% ${tcpPct + udpPct}%, var(--chart-gray) ${tcpPct + udpPct}% 100%)` : 'var(--border-light)';
+        const protocols = [
+            ['TCP', Number(stats.tcpPackets) || 0, '#39767c'],
+            ['UDP', Number(stats.udpPackets) || 0, '#80a59b'],
+            ['ICMP', Number(stats.icmpPackets) || 0, '#b28c58'],
+            ['ICMPv6', Number(stats.icmpv6Packets) || 0, '#8d87a8'],
+            ['ARP', Number(stats.arpPackets) || 0, '#8b9b70'],
+        ];
+        const known = protocols.reduce((sum, [, count]) => sum + count, 0);
+        protocols.push(['Other', Math.max(0, total - known), '#cbd2d0']);
+        let position = 0;
+        const segments = protocols.map(([, count, color]) => {
+            const start = position;
+            position += total ? count / total * 100 : 0;
+            return color + ' ' + start + '% ' + position + '%';
+        });
+        document.getElementById('protocol-donut').style.background = total ? 'conic-gradient(' + segments.join(',') + ')' : 'var(--border-light)';
         document.getElementById('protocol-total').textContent = hasData ? formatNumber(total) : '—';
-        document.getElementById('protocol-legend').innerHTML = [['TCP', tcp, 'blue'], ['UDP', udp, 'teal'], ['Other', other, 'gray']].map(([name, count, color]) => `<div class="protocol-item"><span><span class="legend-dot legend-${color}"></span>${name}</span><strong>${hasData ? (denominator ? count / denominator * 100 : 0).toFixed(1) + '%' : '—'}</strong><small>${formatNumber(count)} packets</small></div>`).join('');
-        document.getElementById('protocol-note').textContent = hasData ? 'Share of total packets inspected' : 'Run an analysis to inspect protocols.';
+        document.getElementById('protocol-legend').innerHTML = protocols.filter(([, count], index) => count || index < 2).map(([name, count, color]) => `<div class="protocol-item"><span><span class="legend-dot" style="background:${color}"></span>${name}</span><strong>${hasData ? (total ? count / total * 100 : 0).toFixed(1) + '%' : '—'}</strong><small>${formatNumber(count)} packets</small></div>`).join('');
+        document.getElementById('protocol-note').textContent = hasData ? 'All captured frames are counted, including unsupported traffic.' : 'Run an analysis to inspect protocols.';
 
         const domains = results?.detectedDomains || [];
         document.getElementById('dash-domain-count').textContent = `${domains.length} domain${domains.length === 1 ? '' : 's'}`;

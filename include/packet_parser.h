@@ -2,8 +2,10 @@
 #define PACKET_PARSER_H
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <array>
+#include <vector>
 #include "pcap_reader.h"
 
 namespace PacketAnalyzer {
@@ -52,56 +54,85 @@ struct UDPHeader {
     uint16_t checksum;         // Checksum
 };
 
-// Parsed packet information - human-readable format
+enum class ParseStatus { Ok, Truncated, Malformed, Unsupported };
+
+// Parsed views refer to the captured bytes, never to reassembled traffic.
 struct ParsedPacket {
     // Timestamps
-    uint32_t timestamp_sec;
-    uint32_t timestamp_usec;
+    uint32_t timestamp_sec = 0;
+    uint32_t timestamp_usec = 0;
+
+    ParseStatus parse_status = ParseStatus::Ok;
+    std::string parse_error;
+    bool truncated = false;
+    bool unsupported = false;
+    uint32_t link_type = 1;
+    uint32_t link_interface_index = 0; // Interface index carried by Linux SLL2.
     
     // Ethernet layer
     std::string src_mac;
     std::string dest_mac;
-    uint16_t ether_type;
+    uint16_t ether_type = 0;
+    uint8_t vlan_count = 0;
+    std::vector<uint16_t> vlan_ids; // Outer to inner, excluding priority bits.
+    bool has_arp = false;
+    uint16_t arp_operation = 0;
     
     // IP layer (if present)
     bool has_ip = false;
-    uint8_t ip_version;
+    uint8_t ip_version = 0;
     std::string src_ip;
     std::string dest_ip;
-    uint8_t protocol;          // TCP=6, UDP=17, ICMP=1
-    uint8_t ttl;
+    uint8_t protocol = 0;      // Final next-header value, after IPv6 extensions.
+    uint8_t ttl = 0;
+    size_t ip_offset = 0;
+    size_t transport_offset = 0;
+    size_t packet_end = 0;     // Exclusive captured bound, excludes link padding.
+    bool is_fragment = false;
+    bool has_fragment_header = false;
+    bool more_fragments = false;
+    uint32_t fragment_offset = 0; // Byte offset, not the on-wire 8-byte units.
+    uint32_t fragment_id = 0;
+    size_t fragment_data_offset = 0; // Captured start of this fragment's IP payload.
     
     // Transport layer (if present)
     bool has_tcp = false;
     bool has_udp = false;
-    uint16_t src_port;
-    uint16_t dest_port;
+    bool has_icmp = false;
+    uint8_t icmp_type = 0;
+    uint8_t icmp_code = 0;
+    uint16_t src_port = 0;
+    uint16_t dest_port = 0;
     
     // TCP-specific
-    uint8_t tcp_flags;
-    uint32_t seq_number;
-    uint32_t ack_number;
+    uint8_t tcp_flags = 0;
+    uint32_t seq_number = 0;
+    uint32_t ack_number = 0;
     
     // Payload
-    size_t payload_length;
+    size_t payload_offset = 0;
+    size_t payload_length = 0;
     const uint8_t* payload_data = nullptr;  // Points into original packet
 };
 
 // Class to parse raw packets
 class PacketParser {
 public:
-    // Parse a raw packet and fill in the ParsedPacket structure
+    // False reports a malformed, truncated or unsupported frame. Discovered
+    // endpoints and parse_error remain available; callers may preserve the frame.
     static bool parse(const RawPacket& raw, ParsedPacket& parsed);
     
     // Helper functions to convert to human-readable strings
     static std::string macToString(const uint8_t* mac);
     static std::string ipToString(uint32_t ip);
+    static std::string ipv6ToString(const uint8_t* ip);
     static std::string protocolToString(uint8_t protocol);
     static std::string tcpFlagsToString(uint8_t flags);
     
 private:
     static bool parseEthernet(const uint8_t* data, size_t len, ParsedPacket& parsed, size_t& offset);
     static bool parseIPv4(const uint8_t* data, size_t len, ParsedPacket& parsed, size_t& offset);
+    static bool parseIPv6(const uint8_t* data, size_t len, ParsedPacket& parsed, size_t& offset);
     static bool parseTCP(const uint8_t* data, size_t len, ParsedPacket& parsed, size_t& offset);
     static bool parseUDP(const uint8_t* data, size_t len, ParsedPacket& parsed, size_t& offset);
 };
@@ -119,8 +150,10 @@ namespace TCPFlags {
 // Protocol numbers
 namespace Protocol {
     constexpr uint8_t ICMP = 1;
+    constexpr uint8_t IGMP = 2;
     constexpr uint8_t TCP = 6;
     constexpr uint8_t UDP = 17;
+    constexpr uint8_t ICMPv6 = 58;
 }
 
 // EtherType values

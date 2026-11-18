@@ -11,22 +11,25 @@ const config        = require('../config');
 // ── POST /api/engine/start ────────────────────────────────────────────────────
 router.post('/start', (req, res) => {
     try {
-        const { inputFile, outputFile, config: engineConfig } = req.body;
+        const { inputFile, outputFile, config: engineConfig } = req.body || {};
 
-        if (!inputFile || !outputFile) {
+        if (typeof inputFile !== 'string' || typeof outputFile !== 'string' || !inputFile || !outputFile) {
             res.status(400);
             return res.json({ error: 'inputFile and outputFile are required' });
         }
 
         // Validate thread counts early so the client gets a meaningful error
-        const numLbs   = parseInt(engineConfig?.numLbs)   || config.ENGINE_DEFAULT_LBS;
-        const fpsPerLb = parseInt(engineConfig?.fpsPerLb) || config.ENGINE_DEFAULT_FPS;
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,160}\.(pcap|pcapng)$/i.test(outputFile) || outputFile.includes('..')) {
+            return res.status(400).json({ error: 'Choose a short .pcap or .pcapng output filename without directory separators.' });
+        }
+        const numLbs   = engineConfig?.numLbs ?? config.ENGINE_DEFAULT_LBS;
+        const fpsPerLb = engineConfig?.fpsPerLb ?? config.ENGINE_DEFAULT_FPS;
 
-        if (numLbs < 1 || numLbs > config.ENGINE_MAX_LBS) {
+        if (!Number.isInteger(numLbs) || numLbs < 1 || numLbs > config.ENGINE_MAX_LBS) {
             res.status(400);
             return res.json({ error: `numLbs must be between 1 and ${config.ENGINE_MAX_LBS}` });
         }
-        if (fpsPerLb < 1 || fpsPerLb > config.ENGINE_MAX_FPS_PER_LB) {
+        if (!Number.isInteger(fpsPerLb) || fpsPerLb < 1 || fpsPerLb > config.ENGINE_MAX_FPS_PER_LB) {
             res.status(400);
             return res.json({ error: `fpsPerLb must be between 1 and ${config.ENGINE_MAX_FPS_PER_LB}` });
         }

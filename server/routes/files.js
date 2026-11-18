@@ -9,15 +9,13 @@ const multer  = require('multer');
 const fs      = require('fs');
 const path    = require('path');
 const config  = require('../config');
+const { inspectCaptureHeader } = require('../capture-format');
+const { randomUUID } = require('node:crypto');
 
 // Storage is fully determined by the server — client cannot influence location
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, config.PCAP_STORAGE_PATH),
-    filename:    (_req, file, cb)  => {
-        // Sanitize the original filename — strip path separators and control chars
-        const safe = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
-        cb(null, `${Date.now()}-${safe}`);
-    },
+    filename:    (_req, _file, cb) => cb(null, `.upload-${randomUUID()}.partial`),
 });
 
 // Only allow .pcap / .pcapng MIME types and extensions
@@ -44,11 +42,27 @@ router.post('/upload', upload.single('pcap'), (req, res) => {
         return res.json({ error: 'No file uploaded' });
     }
 
+    let format;
+    try { format = inspectCaptureHeader(req.file.path); }
+    catch (error) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: error.message });
+    }
+    const stem = path.parse(path.basename(req.file.originalname)).name
+        .replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120) || 'capture';
+    const filename = `${Date.now()}-${randomUUID()}-${stem}${format.extension}`;
+    const published = path.join(config.PCAP_STORAGE_PATH, filename);
+    try { fs.renameSync(req.file.path, published); }
+    catch {
+        fs.rmSync(req.file.path, { force: true });
+        return res.status(500).json({ error: 'Could not save the uploaded capture.' });
+    }
     res.json({
         success:  true,
-        filename: req.file.filename,
-        path:     req.file.path,   // absolute — used by engine-manager internally
+        filename,
+        path:     published,
         size:     req.file.size,
+        format:   format.format,
     });
 });
 
@@ -66,7 +80,7 @@ router.use((err, _req, res, _next) => {
 router.get('/list', (_req, res) => {
     try {
         const files = fs.readdirSync(config.PCAP_STORAGE_PATH)
-            .filter(f => f.endsWith('.pcap') || f.endsWith('.pcapng'))
+            .filter(f => /\.(pcap|pcapng)$/i.test(f) && fs.lstatSync(path.join(config.PCAP_STORAGE_PATH, f)).isFile())
             .map(f => {
                 const fullPath = path.join(config.PCAP_STORAGE_PATH, f);
                 const stat     = fs.statSync(fullPath);
@@ -119,7 +133,7 @@ router.get('/download/:filename', (req, res) => {
 router.delete('/:filename', (req, res) => {
     try {
         const filename = req.params.filename;
-        if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+        if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..') || !/\.(pcap|pcapng)$/i.test(filename)) {
             res.status(400);
             return res.json({ error: 'Invalid filename' });
         }

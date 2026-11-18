@@ -52,6 +52,7 @@ RUN mkdir -p uploads/outputs && \
 
 # Render uses PORT env variable (default 10000)
 ENV PORT=10000
+ENV DPI_BIND_HOST=0.0.0.0
 ENV NODE_ENV=production
 
 EXPOSE ${PORT}

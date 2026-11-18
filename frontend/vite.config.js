@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   // Backend URL — override with VITE_BACKEND_URL in .env for non-standard setups
-  const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:3000';
+  const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:3000';
 
   return {
     root: '.',
@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target:      backendUrl,
-          changeOrigin: true,
+          changeOrigin: false,
         },
       },
     },

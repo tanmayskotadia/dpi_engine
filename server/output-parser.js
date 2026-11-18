@@ -9,7 +9,16 @@ function parseEngineOutput(outputText) {
             totalPackets: 0,
             totalBytes: 0,
             tcpPackets: 0,
-            udpPackets: 0
+            udpPackets: 0,
+            icmpPackets: 0,
+            icmpv6Packets: 0,
+            arpPackets: 0,
+            ipv6Packets: 0,
+            fragments: 0,
+            malformed: 0,
+            truncated: 0,
+            unsupported: 0,
+            inspectionLimited: 0,
         },
         filteringStats: {
             forwarded: 0,
@@ -21,7 +30,8 @@ function parseEngineOutput(outputText) {
             fastPaths: []
         },
         appBreakdown: [],
-        detectedDomains: []
+        detectedDomains: [],
+        blockingReasons: [],
     };
     
     let currentSection = '';
@@ -34,6 +44,18 @@ function parseEngineOutput(outputText) {
         else if (line.includes('THREAD STATISTICS') || line.includes('LB0 dispatched')) currentSection = 'thread_stats';
         else if (line.includes('APPLICATION BREAKDOWN')) currentSection = 'app_breakdown';
         else if (line.includes('[Detected Domains/SNIs]')) currentSection = 'detected_domains';
+        else if (line.includes('[Blocking Reasons]')) currentSection = 'blocking_reasons';
+
+        const extraStats = { 'ICMP Packets': 'icmpPackets', 'ICMPv6 Packets': 'icmpv6Packets', 'ARP Packets': 'arpPackets', 'IPv6 Packets': 'ipv6Packets', Fragments: 'fragments', Malformed: 'malformed', Truncated: 'truncated', Unsupported: 'unsupported', 'Inspection limited': 'inspectionLimited' };
+        const statistic = line.match(/^([^:]+):\s*(\d+)$/);
+        if (statistic && extraStats[statistic[1].trim()]) {
+            results.packetStats[extraStats[statistic[1].trim()]] = Number(statistic[2]);
+            continue;
+        }
+        if (currentSection === 'blocking_reasons' && statistic) {
+            results.blockingReasons.push({ reason: statistic[1].trim(), count: Number(statistic[2]) });
+            continue;
+        }
         
         // Parse Packet Stats
         if (line.startsWith('Total Packets')) {

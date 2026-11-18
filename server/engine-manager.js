@@ -10,6 +10,8 @@ const fs                  = require('fs');
 const { parseEngineOutput } = require('./output-parser');
 const rulesManager        = require('./rules-manager');
 const config              = require('./config');
+const { inspectCaptureHeader } = require('./capture-format');
+const { randomUUID } = require('node:crypto');
 
 class EngineManager {
     constructor() {
@@ -65,25 +67,27 @@ class EngineManager {
     // ── Start the C++ engine ────────────────────────────────────────────────
 
     start(inputFile, outputFile, engineConfig) {
-        if (this.state === 'processing') {
+        if (this.process || this.state === 'processing') {
             throw new Error('Engine is already processing');
         }
 
         // ── Security: ensure inputFile is inside the uploads directory ──────
         const resolvedInput = path.resolve(inputFile);
         const storageDir    = path.resolve(config.PCAP_STORAGE_PATH);
-        if (!resolvedInput.startsWith(storageDir + path.sep) && !resolvedInput.startsWith(storageDir)) {
+        if (path.dirname(resolvedInput) !== storageDir || !/\.(pcap|pcapng)$/i.test(resolvedInput)) {
             throw new Error('Invalid input file: must be a previously uploaded PCAP file');
         }
-        if (!fs.existsSync(resolvedInput)) {
+        if (!fs.existsSync(resolvedInput) || !fs.lstatSync(resolvedInput).isFile()) {
             throw new Error(`Input PCAP file no longer exists. Please select or upload another PCAP.`);
         }
 
         // ── Security: generate a safe output path server-side ───────────────
         // The client provides a suggested filename; we sanitize and place it
         // in the outputs directory only. The client cannot write outside it.
-        const safeName     = path.basename(outputFile).replace(/[^a-zA-Z0-9._-]/g, '_');
-        const finalOutput  = path.join(config.PCAP_OUTPUT_PATH, `${Date.now()}_${safeName}`);
+        const capture = inspectCaptureHeader(resolvedInput);
+        const rules = rulesManager.getRules();
+        const safeName = path.basename(outputFile).replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.(pcap|pcapng)$/i, '');
+        const finalOutput = path.join(config.PCAP_OUTPUT_PATH, `${Date.now()}_${randomUUID().slice(0, 8)}_${safeName}${capture.extension}`);
 
         // ── Validate and clamp thread counts ────────────────────────────────
         const numLbs   = Math.max(1, Math.min(parseInt(engineConfig?.numLbs)   || config.ENGINE_DEFAULT_LBS,   config.ENGINE_MAX_LBS));
@@ -97,6 +101,8 @@ class EngineManager {
         this.startTime    = new Date().toISOString();
         this.rawOutput    = [];
         this.latestResults= null;
+        this.stopRequested = false;
+        this.rulesSnapshot = rules;
 
         // ── Check engine executable ─────────────────────────────────────────
         const enginePath = config.ENGINE_PATH;
@@ -111,12 +117,13 @@ class EngineManager {
         }
 
         // ── Build argument array (safe — never shell-expanded) ──────────────
-        const rules = rulesManager.getRules();
         const args  = [resolvedInput, finalOutput];
 
         rules.blockedIPs.forEach(ip       => args.push('--block-ip',     ip));
         rules.blockedApps.forEach(app     => args.push('--block-app',    app));
         rules.blockedDomains.forEach(dom  => args.push('--block-domain', dom));
+        (rules.blockedPorts || []).forEach(port => args.push('--block-port', port));
+        (rules.blockedProtocols || []).forEach(protocol => args.push('--block-protocol', protocol));
         args.push('--lbs', numLbs.toString());
         args.push('--fps', fpsPerLb.toString());
 
@@ -125,7 +132,8 @@ class EngineManager {
 
         // ── Spawn ───────────────────────────────────────────────────────────
         try {
-            this.process = spawn(enginePath, args);
+            this.process = spawn(enginePath, args, { windowsHide: true });
+            const child = this.process;
 
             this.process.stdout.on('data', data => {
                 const text = data.toString();
@@ -140,8 +148,15 @@ class EngineManager {
             });
 
             this.process.on('close', code => {
-                if (code === 0) {
-                    this.handleComplete();
+                if (this.process !== child) return;
+                this.process = null;
+                if (this.stopRequested) {
+                    this.removePartialOutput();
+                    this.state = 'idle';
+                    this.errorMessage = null;
+                    this.broadcast({ type: 'status', data: this.getStatus() });
+                } else if (code === 0) {
+                    try { this.handleComplete(); } catch (error) { this.handleError(error); }
                 } else {
                     const output = this.rawOutput.join('').trim();
                     const msg = output
@@ -149,10 +164,10 @@ class EngineManager {
                         : `Engine exited with code ${code}`;
                     this.handleError(new Error(msg));
                 }
-                this.process = null;
             });
 
             this.process.on('error', err => {
+                if (this.process !== child) return;
                 this.handleError(new Error(`Failed to launch engine: ${err.message}`));
                 this.process = null;
             });
@@ -165,13 +180,13 @@ class EngineManager {
     // ── Stop ────────────────────────────────────────────────────────────────
 
     stop() {
-        if (this.state === 'processing' && this.process) {
+        if (this.state === 'processing' && this.process && !this.stopRequested) {
             if (process.platform === 'win32') {
-                spawn('taskkill', ['/pid', this.process.pid.toString(), '/f', '/t']);
+                spawn('taskkill', ['/pid', this.process.pid.toString(), '/f', '/t'], { windowsHide: true });
             } else {
                 this.process.kill('SIGINT');
             }
-            this.state        = 'idle';
+            this.stopRequested = true;
             this.errorMessage = null;
             this.broadcast({ type: 'status', data: this.getStatus() });
         }
@@ -191,6 +206,7 @@ class EngineManager {
             this.latestResults.timestamp  = this.startTime;
             this.latestResults.inputFile  = path.basename(this.currentFile);
             this.latestResults.outputFile = path.basename(this.outputFile);
+            this.latestResults.rules = this.rulesSnapshot;
             this.saveResultsToHistory(this.latestResults);
         }
 
@@ -199,11 +215,26 @@ class EngineManager {
     }
 
     handleError(err) {
+        this.removePartialOutput();
         this.state        = 'error';
         this.errorMessage = err.message;
         console.error('[Engine] Error:', err.message);
         this.broadcast({ type: 'status', data: this.getStatus() });
         this.broadcast({ type: 'error',  data: err.message });
+    }
+
+    removePartialOutput() {
+        if (this.outputFile && path.dirname(this.outputFile) === path.resolve(config.PCAP_OUTPUT_PATH)) {
+            const directory = path.resolve(config.PCAP_OUTPUT_PATH);
+            const name = path.basename(this.outputFile);
+            try {
+                for (const file of fs.readdirSync(directory)) {
+                    if (file !== name && !file.startsWith(`${name}.partial-`)) continue;
+                    const target = path.join(directory, file);
+                    if (fs.lstatSync(target).isFile()) fs.unlinkSync(target);
+                }
+            } catch { /* No output was created, or process is still closing. */ }
+        }
     }
 
     // ── Status ──────────────────────────────────────────────────────────────

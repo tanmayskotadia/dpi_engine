@@ -15,8 +15,14 @@ const engineRoutes = require('./routes/engine');
 const rulesRoutes  = require('./routes/rules');
 const resultsRoutes= require('./routes/results');
 const filesRoutes  = require('./routes/files');
+const { localControl, localRequest } = require('./local-control');
+const captureRoutes = require('./routes/capture');
+const firewallRoutes = require('./routes/firewall');
 
 const app = express();
+const bindHost = process.env.DPI_BIND_HOST || '127.0.0.1';
+const localWorkspace = ['127.0.0.1', '::1', 'localhost'].includes(bindHost);
+if (localWorkspace) app.use('/api', localRequest);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // In development, CORS_ORIGIN defaults to '*' (allow all).
@@ -46,6 +52,14 @@ app.use('/api/engine',  engineRoutes);
 app.use('/api/rules',   rulesRoutes);
 app.use('/api/results', resultsRoutes);
 app.use('/api/files',   filesRoutes);
+if (localWorkspace) {
+    app.use('/api/capture', localControl, captureRoutes);
+    app.use('/api/firewall', localControl, firewallRoutes);
+} else {
+    app.use(['/api/capture', '/api/firewall'], (_req, res) => res.status(403).json({
+        error: 'Open a local DPI Engine workspace to use live capture and firewall controls.',
+    }));
+}
 
 // ── SPA fallback (production) ─────────────────────────────────────────────────
 // Express 5 uses path-to-regexp v8 which requires named wildcard params
@@ -56,6 +70,6 @@ if (fs.existsSync(frontendDist)) {
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(config.PORT, () => {
-    console.log(`DPI Engine Backend listening on port ${config.PORT}`);
+app.listen(config.PORT, bindHost, () => {
+    console.log(`DPI Engine Backend listening on ${bindHost}:${config.PORT}`);
 });

@@ -1,47 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const rulesManager = require('../rules-manager');
+const { RuleValidationError, RULE_KEYS } = require('../rule-validation');
 
-router.get('/', (req, res) => {
-    res.json(rulesManager.getRules());
-});
+function respond(res, action) {
+    try {
+        res.json(action());
+    } catch (error) {
+        const status = error instanceof RuleValidationError ? 400 : 500;
+        res.status(status).json({ error: error.message || 'Unable to update blocking rules.' });
+    }
+}
 
-router.post('/ip', (req, res) => {
-    const { ip } = req.body;
-    if (ip) rulesManager.addIP(ip);
-    res.json(rulesManager.getRules());
-});
+router.get('/', (_req, res) => respond(res, () => rulesManager.getRules()));
+router.post('/', (_req, res) => res.status(400).json({ error: 'A rule type is required.' }));
 
-router.delete('/ip/:ip', (req, res) => {
-    rulesManager.removeIP(req.params.ip);
-    res.json(rulesManager.getRules());
-});
+router.post('/:type', (req, res) => respond(res, () => {
+    const { type } = req.params;
+    if (!Object.hasOwn(RULE_KEYS, type)) throw new RuleValidationError('Unknown rule type. Use ip, app, domain, port, or protocol.');
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw new RuleValidationError('Send a JSON object containing the rule value.');
+    return rulesManager.addRule(type, req.body[type]);
+}));
 
-router.post('/app', (req, res) => {
-    const { app } = req.body;
-    if (app) rulesManager.addApp(app);
-    res.json(rulesManager.getRules());
-});
-
-router.delete('/app/:app', (req, res) => {
-    rulesManager.removeApp(req.params.app);
-    res.json(rulesManager.getRules());
-});
-
-router.post('/domain', (req, res) => {
-    const { domain } = req.body;
-    if (domain) rulesManager.addDomain(domain);
-    res.json(rulesManager.getRules());
-});
-
-router.delete('/domain/:domain', (req, res) => {
-    rulesManager.removeDomain(req.params.domain);
-    res.json(rulesManager.getRules());
-});
-
-router.delete('/', (req, res) => {
-    rulesManager.clearAll();
-    res.json(rulesManager.getRules());
-});
+router.delete('/:type/:value', (req, res) => respond(res, () => rulesManager.removeRule(req.params.type, req.params.value)));
+router.delete('/:type', (_req, res) => res.status(400).json({ error: 'A rule type and value are required.' }));
+router.delete('/', (_req, res) => respond(res, () => rulesManager.clearAll()));
 
 module.exports = router;

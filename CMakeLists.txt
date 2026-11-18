@@ -19,6 +19,8 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Create the executable
 add_executable(packet_analyzer ${SOURCES})
+find_package(Threads REQUIRED)
+target_link_libraries(packet_analyzer PRIVATE Threads::Threads)
 
 # For macOS, we might need to link against system libraries later
 if(APPLE)

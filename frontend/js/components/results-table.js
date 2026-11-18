@@ -53,6 +53,7 @@ export class ResultsView {
                 <a class="btn btn-primary" href="#engine">${icon('play')} Start an analysis</a>
             </div>
             <div id="results-content" class="results-content" hidden>
+                <div class="notice notice-info" id="results-coverage" role="status" hidden></div>
                 <div class="card result-context">
                     <div class="result-file">
                         <span class="file-icon">${icon('file', 22)}</span>
@@ -68,6 +69,7 @@ export class ResultsView {
                         <div><dt>Forwarded</dt><dd id="results-forwarded"></dd></div>
                         <div><dt>Dropped</dt><dd id="results-dropped"></dd></div>
                     </dl>
+                    <p class="help-text" id="results-blocking-reasons"></p>
                 </div>
                 <div class="card">
                     <div class="card-header">
@@ -84,7 +86,7 @@ export class ResultsView {
                 </div>
                 <div class="card">
                     <div class="card-header">
-                        <div><h2 class="card-title">Detected domains</h2><p class="card-description">Hostnames identified from TLS server names and HTTP traffic.</p></div>
+                        <div><h2 class="card-title">Detected domains</h2><p class="card-description">Hostnames identified from visible TLS server names, HTTP headers, and DNS questions.</p></div>
                         <span class="badge badge-neutral" id="results-domain-count">0 domains</span>
                     </div>
                     <div class="table-toolbar">
@@ -107,14 +109,14 @@ export class ResultsView {
                     <p class="table-footer" id="results-domain-summary" role="status"></p>
                 </div>
                 <details class="card thread-details">
-                    <summary><span>${icon('activity')} Processing statistics</span><span class="help-text">Load balancers & fast paths</span></summary>
+                    <summary><span>${icon('activity')} Processing statistics</span><span class="help-text">Dispatch groups & analysis workers</span></summary>
                     <div class="grid grid-cols-2 thread-tables">
                         <div>
-                            <h3 class="card-title">Load balancer threads</h3>
+                            <h3 class="card-title">Dispatch groups</h3>
                             <div class="table-container"><table class="data-table" id="results-lb-table"><caption class="visually-hidden">Packets dispatched by each load balancer</caption><thead><tr><th scope="col">Thread</th><th scope="col" class="numeric">Dispatched packets</th></tr></thead><tbody></tbody></table></div>
                         </div>
                         <div>
-                            <h3 class="card-title">Fast path threads</h3>
+                            <h3 class="card-title">Analysis workers</h3>
                             <div class="table-container"><table class="data-table" id="results-fp-table"><caption class="visually-hidden">Packets processed by each fast path thread</caption><thead><tr><th scope="col">Thread</th><th scope="col" class="numeric">Processed packets</th></tr></thead><tbody></tbody></table></div>
                         </div>
                     </div>
@@ -190,6 +192,13 @@ export class ResultsView {
         this.get('results-forwarded').textContent = formatNumber(number(result.filteringStats?.forwarded));
         this.get('results-dropped').textContent = formatNumber(number(result.filteringStats?.dropped));
         this.get('btn-download-pcap').disabled = !result.outputFile;
+        const coverage = [['unsupported', 'unsupported frames'], ['malformed', 'malformed frames'], ['truncated', 'truncated frames'], ['fragments', 'IP fragments'], ['inspectionLimited', 'flows at the inspection limit']]
+            .filter(([key]) => result.packetStats[key]).map(([key, label]) => `${formatNumber(result.packetStats[key])} ${label}`);
+        this.get('results-coverage').hidden = !coverage.length;
+        this.get('results-coverage').textContent = `${coverage.join(' · ')}. These are counted and preserved unless a known rule matches. Hostname inspection is limited for incomplete, fragmented, or encrypted traffic.`;
+        this.get('results-blocking-reasons').textContent = (result.blockingReasons || []).length
+            ? `Blocked by: ${result.blockingReasons.map(item => `${item.reason} (${formatNumber(item.count)})`).join(' · ')}. These counts describe the filtered capture, not live firewall activity.`
+            : 'Filtering results describe this saved capture. Live firewall policy is managed separately.';
 
         const apps = [...(result.appBreakdown || [])].sort((a, b) => number(b.count) - number(a.count));
         this.get('results-app-count').textContent = `${apps.length} ${apps.length === 1 ? 'application' : 'applications'}`;

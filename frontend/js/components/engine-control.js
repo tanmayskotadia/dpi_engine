@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import { icon, escapeHtml, formatBytes } from '../ui.js';
 
-const captureName = (filename = '') => filename.replace(/^\d{13}-/, '');
+const captureName = (filename = '') => filename.replace(/^\d{13}-(?:[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}-)?/i, '');
 
 export class EngineControl {
     constructor(state) {
@@ -23,6 +23,7 @@ export class EngineControl {
                 this.refreshFileList();
             }
         });
+        window.addEventListener('capture-complete', event => this.refreshFileList(event.detail?.path));
         this.state.on('rules', rules => this.updateRules(rules));
         this.state.on('output', (text, isError) => this.appendOutput(text, isError));
         this.state.on('output-history', text => {
@@ -52,25 +53,31 @@ export class EngineControl {
     render() {
         this.container.innerHTML = `
             <div class="page-heading">
-                <div><p class="eyebrow">ANALYSIS WORKSPACE</p><h1 tabindex="-1">New analysis</h1>
-                <p>Choose a capture, review your rules, and inspect the traffic.</p></div>
+                <div><h1 tabindex="-1">Analyze traffic</h1>
+                <p>Inspect a saved capture or record packets from a local interface.</p></div>
                 <a class="btn btn-secondary" href="#results">${icon('folder')} Previous results</a>
             </div>
 
+            <nav class="workspace-links" aria-label="Traffic workspace sections">
+                <a href="#capture-heading" data-workspace-jump>Saved captures</a>
+                <a href="#capture-live-heading" data-workspace-jump>Live capture</a>
+                <a href="#blocking-rules-heading" data-workspace-jump>Blocking rules</a>
+                <a href="#firewall-heading" data-workspace-jump>Windows firewall</a>
+            </nav>
             <form id="engine-analysis-form" novalidate>
                 <div class="engine-layout">
                     <section class="card" aria-labelledby="capture-heading">
                         <div class="card-header">
-                            <div><p class="step-label">01 / INPUT</p><h2 class="card-title" id="capture-heading">Packet capture</h2>
-                            <p class="card-description">Upload a PCAP file or select a saved capture.</p></div>
+                            <div><h2 class="card-title" id="capture-heading">Packet capture</h2>
+                            <p class="card-description">Upload a PCAP or PCAPNG file, or select a saved capture.</p></div>
                         </div>
                         <div class="card-body">
                             <div id="engine-upload-zone" class="upload-zone" aria-disabled="false">
                                 <span class="upload-icon">${icon('upload', 24)}</span>
                                 <p class="upload-title">Drop a capture file here</p>
-                                <p class="upload-description">Classic .pcap format</p>
+                                <p class="upload-description">PCAP & PCAPNG · microsecond or nanosecond timestamps</p>
                                 <button type="button" id="btn-upload" class="btn btn-secondary">${icon('plus')} Browse files</button>
-                                <input type="file" id="engine-upload-input" accept=".pcap" hidden aria-label="Upload a PCAP capture">
+                                <input type="file" id="engine-upload-input" accept=".pcap,.pcapng" hidden aria-label="Upload a PCAP capture">
                             </div>
                             <p id="engine-upload-feedback" class="help-text" role="status" aria-live="polite">Files upload automatically when selected.</p>
 
@@ -90,25 +97,25 @@ export class EngineControl {
 
                     <section class="card engine-summary" aria-labelledby="configuration-heading">
                         <div class="card-header">
-                            <div><p class="step-label">02 / CONFIGURATION</p><h2 class="card-title" id="configuration-heading">Analysis settings</h2>
+                            <div><h2 class="card-title" id="configuration-heading">Analysis settings</h2>
                             <p class="card-description">Prepare the filtered capture and processing options.</p></div>
                         </div>
                         <div class="card-body">
                             <div class="form-group">
                                 <label class="form-label" for="engine-output-file">Output filename</label>
                                 <input id="engine-output-file" type="text" class="form-control" value="filtered.pcap" placeholder="filtered.pcap" autocomplete="off" spellcheck="false" required aria-describedby="engine-output-help">
-                                <p class="help-text" id="engine-output-help">Download the filtered capture from the results page.</p>
+                                <p class="help-text" id="engine-output-help">The output keeps the input format and timestamps. Download it from Results.</p>
                             </div>
                             <details class="advanced-settings" id="engine-advanced-settings">
                                 <summary>${icon('settings')} Processing settings</summary>
                                 <p class="help-text">The defaults suit most captures. Increase these values for larger workloads.</p>
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label class="form-label" for="engine-cfg-lbs">Load balancers</label>
+                                        <label class="form-label" for="engine-cfg-lbs">Dispatch groups</label>
                                         <input type="number" id="engine-cfg-lbs" class="form-control" value="2" min="1" max="16" step="1" required>
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label" for="engine-cfg-fps">Workers per balancer</label>
+                                        <label class="form-label" for="engine-cfg-fps">Workers per group</label>
                                         <input type="number" id="engine-cfg-fps" class="form-control" value="2" min="1" max="16" step="1" required>
                                     </div>
                                 </div>
@@ -137,7 +144,9 @@ export class EngineControl {
                 </div>
             </form>
 
+            <div id="capture-panel-container"></div>
             <div id="engine-rules-container"></div>
+            <div id="firewall-panel-container"></div>
 
             <section class="card" aria-labelledby="engine-console-heading">
                 <div class="card-header">
@@ -152,6 +161,16 @@ export class EngineControl {
     }
 
     bindEvents() {
+        this.container.querySelectorAll('[data-workspace-jump]').forEach(link => {
+            link.addEventListener('click', event => {
+                const heading = this.container.querySelector(link.hash);
+                if (!heading) return;
+                event.preventDefault();
+                heading.tabIndex = -1;
+                heading.focus({ preventScroll: true });
+                heading.scrollIntoView({ block: 'start' });
+            });
+        });
         this.element('engine-analysis-form').addEventListener('submit', event => {
             event.preventDefault();
             this.startAnalysis();
@@ -209,7 +228,7 @@ export class EngineControl {
     }
 
     updateRules(rules) {
-        const count = (rules?.blockedIPs?.length || 0) + (rules?.blockedApps?.length || 0) + (rules?.blockedDomains?.length || 0);
+        const count = ['blockedIPs', 'blockedApps', 'blockedDomains', 'blockedPorts', 'blockedProtocols'].reduce((total, key) => total + (rules?.[key]?.length || 0), 0);
         this.element('engine-rules-count').textContent = count
             ? `${count} blocking ${count === 1 ? 'rule' : 'rules'} will apply to the next analysis.`
             : 'No blocking rules. All traffic is allowed.';
@@ -222,7 +241,7 @@ export class EngineControl {
         this.updateUI();
         try {
             const files = await api.getFilesList();
-            this.files = files.filter(file => /\.pcap$/i.test(file.filename));
+            this.files = files.filter(file => /\.(pcap|pcapng)$/i.test(file.filename));
             const select = this.element('engine-input-file');
             const previous = selectedPath || select.value;
             select.replaceChildren(new Option(this.files.length ? 'Select a saved capture' : 'No captures yet — upload a file above', ''));
@@ -255,8 +274,8 @@ export class EngineControl {
         if (this.processing || this.uploading || this.deleting || this.loadingFiles || this.offline) return;
         this.hideError();
         const feedback = this.element('engine-upload-feedback');
-        if (!/\.pcap$/i.test(file.name)) {
-            feedback.textContent = 'Choose a classic .pcap file. Export PCAPNG captures as PCAP before uploading.';
+        if (!/\.(pcap|pcapng)$/i.test(file.name)) {
+            feedback.textContent = 'Choose a .pcap or .pcapng capture file.';
             this.showError(feedback.textContent);
             return;
         }
@@ -269,13 +288,12 @@ export class EngineControl {
         feedback.textContent = `Uploading ${file.name} (${formatBytes(file.size)})…`;
         this.updateUI();
         try {
-            // The engine reads classic microsecond PCAP headers, not PCAPNG or nanosecond PCAP.
+            // Check the signature immediately; the engine validates every record before writing output.
             const header = new DataView(await file.slice(0, 4).arrayBuffer()).getUint32(0, true);
-            if (header !== 0xa1b2c3d4 && header !== 0xd4c3b2a1) {
-                throw new Error('This capture format is not supported. Export it as classic PCAP with microsecond timestamps.');
+            if (![0xa1b2c3d4, 0xd4c3b2a1, 0xa1b23c4d, 0x4d3cb2a1, 0x0a0d0d0a].includes(header)) {
+                throw new Error('This file is not a recognized PCAP or PCAPNG capture.');
             }
-            const normalized = file.name.endsWith('.pcap') ? file : new File([file], file.name.replace(/\.pcap$/i, '.pcap'), { type: file.type });
-            const uploaded = await api.uploadFile(normalized);
+            const uploaded = await api.uploadFile(file);
             await this.refreshFileList(uploaded.path);
             feedback.textContent = `${file.name} uploaded${this.filesLoaded ? ' and selected' : ''}.`;
         } catch (error) {
@@ -336,8 +354,8 @@ export class EngineControl {
             input.focus();
             return;
         }
-        if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.pcap$/i.test(output.value.trim()) || output.value.includes('..')) {
-            this.showError('Use a .pcap filename with letters, numbers, single dots, hyphens, or underscores, for example filtered.pcap.');
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.(pcap|pcapng)$/i.test(output.value.trim()) || output.value.includes('..')) {
+            this.showError('Use a .pcap or .pcapng filename with letters, numbers, single dots, hyphens, or underscores, for example filtered.pcap.');
             output.focus();
             return;
         }
