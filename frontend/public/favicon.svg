@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#000"/><path d="M2 25h7V12h7v16h7V9h7v16h8" fill="none" stroke="#fff" stroke-width="3.5" stroke-linejoin="miter"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>DPI Engine</title>
+  <circle cx="32" cy="32" r="31" fill="#fff"/>
+  <g fill="#000">
+    <path d="M18 14h15c12 0 21 7 21 18s-9 18-21 18H12l5-8h16c7 0 12-4 12-10s-5-10-12-10H13z"/>
+    <path d="M13 28h22l-5 8H8z"/>
+  </g>
+</svg>

@@ -6,33 +6,35 @@
     <meta name="theme-color" content="#000000">
     <meta name="description" content="Analyze packet captures, inspect application traffic, and manage filtering rules with DPI Engine.">
     <title>Overview · DPI Engine</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg?v=2">
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div id="app" class="app-container">
         <header class="site-header">
-            <div class="navbar">
-                <a class="brand" href="#dashboard" aria-label="DPI Engine overview">
-                    <img src="/favicon.svg" class="brand-mark" alt="" width="34" height="34">
-                    <span class="wordmark"><b>DPI</b> Engine</span>
-                </a>
-                <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="workspace-index" aria-expanded="false">
-                    <span class="sr-only">Workspace navigation: </span><span id="nav-current">Overview</span><span class="index-chevron" aria-hidden="true"></span>
-                </button>
-                <nav class="primary-nav" id="workspace-index" aria-label="Main navigation">
-                    <a href="#dashboard" class="nav-item" data-target="dashboard">Overview</a>
-                    <a href="#engine" class="nav-item" data-target="engine">Captures</a>
-                    <a href="#results" class="nav-item" data-target="results">Results</a>
-                    <a href="#logs" class="nav-item" data-target="logs">Console</a>
-                </nav>
+            <div class="masthead">
+                <div class="navbar">
+                    <a class="brand" href="#dashboard" aria-label="DPI Engine overview">
+                        <img src="/favicon.svg?v=2" class="brand-mark" alt="" width="36" height="36">
+                        <span class="wordmark"><b>DPI</b> Engine</span>
+                    </a>
+                    <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="workspace-index" aria-expanded="false">
+                        <span class="sr-only">Workspace navigation: </span><span id="nav-current">Overview</span><span class="index-chevron" aria-hidden="true"></span>
+                    </button>
+                    <nav class="primary-nav" id="workspace-index" aria-label="Main navigation">
+                        <a href="#dashboard" class="nav-item" data-target="dashboard">Overview</a>
+                        <a href="#engine" class="nav-item" data-target="engine">Captures</a>
+                        <a href="#results" class="nav-item" data-target="results">Results</a>
+                        <a href="#logs" class="nav-item" data-target="logs">Console</a>
+                    </nav>
+                </div>
+                <div class="topbar">
+                    <div class="engine-status-indicator" id="global-status" role="status"><span class="status-dot status-idle"></span><span class="status-text">Connecting</span></div>
+                    <div class="topbar-actions"><span class="current-file-badge" id="current-file-badge" hidden></span><span class="connection-status" id="connection-status" role="status"><span class="status-dot status-idle"></span><span>Connecting</span></span></div>
+                </div>
             </div>
         </header>
         <div class="workspace">
-            <div class="topbar">
-                <div class="engine-status-indicator" id="global-status" role="status"><span class="status-dot status-idle"></span><span class="status-text">Connecting</span></div>
-                <div class="topbar-actions"><span class="current-file-badge" id="current-file-badge" hidden></span><span class="connection-status" id="connection-status" role="status"><span class="status-dot status-idle"></span><span>Connecting</span></span></div>
-            </div>
             <main class="main-content" id="main-content" tabindex="-1">
                 <div id="connection-alert" class="notice notice-warning" role="status" hidden>Connection interrupted. Reconnecting automatically; displayed results may be out of date.</div>
                 <div id="data-alert" class="notice notice-error" role="alert" hidden><span id="data-alert-text"></span><button class="btn btn-secondary btn-sm" id="retry-data">Retry</button></div>
